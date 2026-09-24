@@ -1,40 +1,47 @@
 # 提示词驱动安装与验收
 
-适用：在用户本机运行、有终端执行权限的 Codex 或其他本地助手。不是让远程聊天凭提示词自动取得本机执行权限。
+完整可复制提示词见 [README 第 3.2 节](../README.md#install)，网站、排错和客户端验收见第 3.1、3.3、3.4、3.5 节。本文补充执行规则，不另维护一份固定个人目录和权限的安装模板。
 
-## 可直接粘贴的提示词
+## 先交互选择，再执行安装
 
-> 请在本机安装并配置当前仓库的 chatgpt-local-mcp-tunnel。先阅读 README、bootstrap.py、skills/local-mcp-setup/SKILL.md。授权根目录 ~/git_local，模式 read_write；不存在时报告实际路径，不猜测。执行 bootstrap.py --plan 后安装，运行真实 self-test，用 codex mcp add 注册并用 list/get 验证；已有同名相同条目则跳过，有冲突不覆盖其他配置。安装官方完整 tunnel-client（包括 cloudflared），核对 SHA256SUMS。通过本机安全方式设置我提供的 Tunnel ID，Runtime key 不得写入提示词、命令参数、项目或普通配置。没有已存凭据时，停在本机交互终端的 key set，不能要求我把 key 发到聊天。随后创建专属 profile，执行 doctor --with-tunnel；缺权限、登录或系统授权时清楚标出阻碍，不绕过。只有真正测试过的层级才能标为通过。最后提供实际启动命令及 ChatGPT App 激活步骤。
+目录默认候选是 `~/`（等同 `~/.`），也可由用户指定其他目录。模式在 `read_only`、`read_write` 之间由用户选择；已在对话中明确的选项不重复问。读写模式下再确认 write_roots；HOME 全范围可写需要明确确认。命令执行和 Git 推送保持关闭。
 
-## 执行顺序
+用户确认后，检查现有仓库、脏工作区、Python 3.11+、Git和Codex。以同样的非敏感 root/mode 参数先运行 `bootstrap.py --plan`，再用 macOS/Linux 的 `install.sh` 或 Windows 的 `python bootstrap.py` 安装完整组件。权限不足或缺系统依赖时说明并征求授权，不自行 sudo，不覆盖已有修改和其他 MCP 配置。
 
-1. 定位仓库；私有仓库认证缺失时使用用户正常的 GitHub 登录方式，不能索取 token 粘贴到聊天。不要创建替代项目覆盖现有目录。
-2. 检查 `python --version`，须 3.11+；Linux 缺 venv 说明发行版包名，由用户确认系统包安装。先执行 `bootstrap.py --plan`。
-3. macOS/Linux 用 `./install.sh --root <实际路径> --mode read_write --register-codex --install-client`。Windows 用 `python bootstrap.py` 同参数。已有配置先读取可公开字段；不要打印含密钥的历史配置。
-4. 核对安装器输出的 launcher、配置路径和版本。`local-mcp self-test` 必须返回真实进程握手结果。
-5. Tunnel ID 已知时 `local-mcp configure --tunnel-id <ID>`；未创建/授权时指出缺项。ID 可以出现在配置中，Runtime key 不可以。`local-mcp key set` 只能在用户本机 TTY 隐藏输入；自动助手没有 TTY 就停这一步。Linux 无桌面使用专门的 systemd 路线。
-6. `local-mcp tunnel init`；`local-mcp doctor --with-tunnel`。记录退出码、错误码及修复动作，不能将 warning/not_checked 改写成通过。
-7. `local-mcp tunnel run` 是持续前台进程，不适合作为一个无期限阻塞的 Codex shell 调用。用户可在单独终端运行，或明确要求配置 OS 服务。助手不得无授权创建常驻后台任务。
-8. 用户在 ChatGPT 选中 Tunnel App 后，调用 policy_info、visual_probe 和只读文件读取。写验收仅在授权后用唯一测试文件，不改现有业务文件。确认图片可见，不要求重复上传现有本机图片。
+## ID 和 key：独立终端交互，不进入聊天
 
-## 验证级别
+安装器给出的 local-mcp 绝对路径加以下子命令即可；实际值不拼进任何命令：
 
-| 层 | 可以报告“通过”的证据 |
+```text
+local-mcp tunnel configure
+local-mcp key status
+local-mcp key set
+```
+
+`tunnel configure` 是本机管理入口，不是远程 MCP 工具。用户亲自隐藏输入 ID，已有正确值可回车保留；只改变 Tunnel 关联，不改变 root/mode/write_roots。`key status` 只检查凭据状态；只有缺少凭据且用户选择录入时才运行 `key set`，将 key 隐藏录入系统凭据库。
+
+不要让模型读取值后通过 write_stdin/工具参数、echo、环境变量赋值或生成的脚本源码中转。Codex 有 PTY 不等于允许把凭据送入其对话记录；本人应使用不由助手记录输入的独立终端。无 TTY 或隐藏输入失败就停止这一步，不回退明文。
+
+ID 必须保存在受保护的本地配置/profile，key 按 keystore 策略保存；本工具输出会脱敏 ID/key，但不保证第三方 Tunnel 工具、OS审计或终端录制不留痕。不要打印原始配置或提交这些文件。Linux 无桌面路线见 [Linux 凭据](LINUX_CREDENTIALS.md)。
+
+## 用户输入后继续完成
+
+运行 `self-test`，ID及凭据就绪后运行 `tunnel init` 和 `doctor --with-tunnel`；没有凭据时先完成可独立进行的本机自检、Codex 注册和媒体依赖检查。真实错误或未检查项目不得报告为通过。
+
+`tunnel run` 在初始化、诊断通过后由独立终端运行，不自动添加常驻服务或开机启动。实例不在线时 ChatGPT 不能访问；Codex stdio 本地连接不依赖 Tunnel。
+
+## 验收证据
+
+| 层级 | 通过条件 |
 |---|---|
-| 安装 | launcher 实际存在，版本可运行 |
-| 本机 MCP | 新子进程实际 initialize/discover、tools/list、tools/call 成功 |
-| Codex 注册 | 官方 list/get 返回预期 command/args；不等于当前会话已启用 |
-| Tunnel 认证 | 官方 doctor 对当前 ID/key 真实通过 |
-| 在线连接 | 运行进程健康，ChatGPT 实际调用该工具 |
-| 图片 | visual_probe 字符被视觉模型正确识别，或真实文件图像与用户观测一致 |
-| 写入 | 新测试文件真实写入并重新读取、哈希一致 |
+| 安装 | 启动器实际存在，版本可运行 |
+| 本机 MCP | 实际 stdio 握手、工具发现和读取成功 |
+| Codex | list/get 注册正确，新会话实际调用 policy_info |
+| Tunnel | 对本机保存的 ID/key 运行官方诊断并通过，不显示其正文 |
+| ChatGPT | 选中相应 App 后实际调用工具 |
+| 图片 | 当前视觉模型正确识别 visual_probe，而非仅返回 Base64 |
+| 写入 | 仅在用户选择读写且授权验收后，新建测试文件并读回校验 |
 
 ## 可选 Computer Use
 
-在客户端已具备并授权 Computer Use 时，可用它导航 Platform 的 Tunnel/工作区关联页面、ChatGPT 的 Developer Mode/App 页面。密钥生成/显示/复制页面交回用户，不截取或转录 key；登录、验证码、系统授权由用户完成。脚本负责文件与配置修改，避免用坐标点击编辑配置文件。
-
-本仓库没有内置桌面遥控组件，不会要求安装不明 Computer Use 扩展，也不会改变 ChatGPT 订阅或跳过权限。
-
-## v0.4 补充
-
-完整安装包含 search/pathspec。安装和升级均保持 enable_commands=false、enable_git_push=false（除非本机此前明确配置）；不要因需求里提到编程就自动开 Shell 或网络推送。获得明确授权后，再按 docs/CODING_TOOLS.md 通过本机 configure 开启。Shell 非沙箱风险确认、远端 URL 白名单与凭据库授权是独立步骤。
+仅在本机助手确实有获授权的浏览器/Computer Use 时用于页面导航。会显示或复制真实 ID/key 的步骤交由本人完成，不截图、不转录、不输出到聊天。登录、验证码和系统权限确认也由本人完成。无界面工具时不要假称已代办。

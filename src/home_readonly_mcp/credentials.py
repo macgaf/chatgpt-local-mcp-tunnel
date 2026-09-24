@@ -5,8 +5,28 @@ import os
 from pathlib import Path
 import stat
 import sys
+import warnings
 from .errors import Fault
 from .policy import APP
+
+
+def hidden_input(prompt):
+    """Local TTY only; no getpass fallback that might echo protected input."""
+    if not sys.stdin.isatty():
+        raise Fault('INTERACTIVE_SECRET_REQUIRED', '请在本机交互式终端录入。',
+                    '当前输入不是 TTY，未读取任何值。',
+                    '由本人打开独立终端；不要把 Tunnel ID 或 key 发到聊天或命令参数。')
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter('error', getpass.GetPassWarning)
+            return getpass.getpass(prompt)
+    except getpass.GetPassWarning:
+        raise Fault('HIDDEN_INPUT_UNAVAILABLE', '终端无法保证隐藏输入，已停止。',
+                    'getpass 无法关闭回显；拒绝回退为明文输入。',
+                    '换用本机正常交互终端，不使用管道、录屏或会话录制。') from None
+    except EOFError:
+        raise Fault('INTERACTIVE_INPUT_CANCELLED', '交互输入已结束，未保存。',
+                    '终端输入关闭。', '准备好后在本机终端重试。') from None
 
 
 def validate_key(value):
@@ -34,17 +54,13 @@ def native_backend():
 def key_account(settings):
     tunnel_id = settings.get('tunnel_id')
     if not tunnel_id:
-        raise Fault('TUNNEL_ID_MISSING', '尚未设置 tunnel_id。', '无法确定凭据所属隧道。', '先执行 configure --tunnel-id。')
+        raise Fault('TUNNEL_ID_MISSING', '尚未设置 tunnel_id。', '无法确定凭据所属隧道。', '先在本机执行 local-mcp tunnel configure。')
     return tunnel_id
 
 
 def save_key(settings, value=None, backend=None):
     # No CLI argument accepts the secret. A value parameter exists for tests only.
-    if value is None and not sys.stdin.isatty():
-        raise Fault('INTERACTIVE_SECRET_REQUIRED', '密钥录入必须在本机交互式终端完成。',
-                    '当前输入不是 TTY，拒绝降级为明文回显。',
-                    '在本机终端运行 local-mcp key set；不要把 key 交给聊天或脚本参数。')
-    key = validate_key(value if value is not None else getpass.getpass('Runtime API key（隐藏输入）: '))
+    key = validate_key(value if value is not None else hidden_input('Runtime API key（隐藏输入）: '))
     backend = backend or native_backend()
     try:
         backend.set_password(APP, key_account(settings), key)

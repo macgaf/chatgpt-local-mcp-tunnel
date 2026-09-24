@@ -69,6 +69,10 @@ FileMCP 原作可能报 `Command session is active; finish or cancel it before f
 
 ## 提交诊断信息
 
-`doctor --bundle ./diagnostic-local-mcp.json` 生成脱敏报告。不要附上 key、.env、整个 HOME、浏览器 Cookie 或 Keychain。工具日志只有 tool、request_id、耗时、错误码，不记录文件内容。备份文件是真实原始内容，不能当作普通日志公开。
+`doctor --bundle ./diagnostic-local-mcp.json` 生成脱敏报告。不要附上 Tunnel ID、key、.env、整个 HOME、浏览器 Cookie 或 Keychain。工具日志只有 tool、request_id、耗时、错误码，不记录文件内容。备份文件是真实原始内容，不能当作普通日志公开。
 
 本报告中的 pass 表示对应探针真实执行通过；warning 是可选项不足，not_checked 是未执行。尤其不能把 core-only 的成功改写成图片、凭据库和云端连接全部正常。
+
+## 本机交互配置
+
+目录默认候选为 ~/，模式由用户选只读或读写，不把示例目录/模式当成授权。Tunnel ID 在 `local-mcp tunnel configure` 中隐藏录入，key 在 `local-mcp key set` 中隐藏录入；不可发到聊天或命令参数。`INTERACTIVE_SECRET_REQUIRED` 表示没有本机 TTY，`HIDDEN_INPUT_UNAVAILABLE` 表示不能关闭回显，`INTERACTIVE_INPUT_CANCELLED` 表示输入已结束。遇到这些错误换用本人独立终端，不 echo/管道传值，不用工具参数中转。ID格式错误不会显示实际输入值；已有正确ID可回车保留。原始配置与第三方日志仍可能含真实ID，不公开或整份输出。

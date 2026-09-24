@@ -4,12 +4,12 @@ import errno
 import re
 import uuid
 
-_SECRET = re.compile(r'(?i)(?:sk-[a-z0-9_-]{12,}|(?:github_pat_|gh[pousr]_)[a-z0-9_]{12,}|Bearer\s+[^\s"\']+)')
+_SECRET = re.compile(r'(?i)(?:chatgpt-local-mcp-tunnel-[a-f0-9]{8}|tunnel_[a-z0-9]{32}|sk-[a-z0-9_-]{12,}|(?:github_pat_|gh[pousr]_)[a-z0-9_]{12,}|Bearer\s+[^\s"\']+)')
 
 
 def redact(value, secrets=()):
     if isinstance(value, dict):
-        return {k: ('[REDACTED]' if str(k).lower() in {'api_key', 'password', 'token', 'authorization'}
+        return {k: ('[REDACTED]' if str(k).lower() in {'api_key', 'runtime_api_key', 'tunnel_id', 'control_plane_tunnel_id', 'password', 'token', 'authorization'}
                     else redact(v, secrets)) for k, v in value.items()}
     if isinstance(value, (list, tuple)):
         return [redact(v, secrets) for v in value]

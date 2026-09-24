@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.4.0 交互安装修订 — 2026-09-24
+
+- README/安装提示词不再指定个人项目目录；以 ~/ 为默认候选，用户先选择目录及只读/读写和可写范围。
+- 新增本机 `tunnel configure`，隐藏录入 Tunnel ID；key set 共用严格隐藏输入，无法关闭回显时停止。
+- 本工具输出脱敏 ID/key 及含 ID 尾号的 profile 名称；ID仍按需存本地受保护配置，不承诺底层系统无痕。
+- 同步中文 README、安装 Skill、Linux 凭据与故障说明；不改 38 个 MCP 接口和权限默认值。
+- 本地回归 188 passed、5 Windows 专用 skipped；实机凭据/云端认证未测试。
+
 ## 0.4.0 — 2026-09-24
 
 - 共178项用例，三平台 pytest 与真实 stdio 自检通过；详见 TEST_REPORT.md。

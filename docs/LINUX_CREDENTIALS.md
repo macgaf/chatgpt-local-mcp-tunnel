@@ -10,10 +10,11 @@
 
 这是显式选项，不是自动降级。先确认本机 `systemd-creds --help` 支持用户凭据 `--user`，`systemctl --user` 可用。老发行版/没有 user manager 时停止，按本机系统能力配置；不要把 key 改写到公开 unit 的 Environment/SetCredential。
 
-本地配置（仅 ID，没有 key）：
+本地配置：先由本人隐藏录入 ID，再选择凭据来源（命令中不含 ID/key）：
 
 ```bash
-local-mcp configure --tunnel-id tunnel_替换为真实ID --key-source systemd
+local-mcp tunnel configure
+local-mcp configure --key-source systemd
 ```
 
 用本机交互终端隐藏输入，然后通过标准输入送给 systemd-creds 加密，**没有明文中间文件或密钥命令参数**：
@@ -21,6 +22,7 @@ local-mcp configure --tunnel-id tunnel_替换为真实ID --key-source systemd
 ```python
 # 保存为本机临时管理脚本，在交互式终端用 python3 运行；不要在聊天中填写 key。
 import getpass
+import warnings
 import os
 from pathlib import Path
 import subprocess
@@ -32,7 +34,9 @@ directory.mkdir(parents=True, exist_ok=True, mode=0o700)
 output = directory/'runtime-api-key.cred'
 if output.exists():
     raise SystemExit('Credential already exists; review before replacing it.')
-key = getpass.getpass('Runtime API key: ')
+with warnings.catch_warnings():
+    warnings.simplefilter('error', getpass.GetPassWarning)
+    key = getpass.getpass('Runtime API key: ')
 if not key or any(ch.isspace() for ch in key):
     raise SystemExit('Invalid key input.')
 old = os.umask(0o077)

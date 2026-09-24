@@ -5,10 +5,10 @@ description: 安装、注册、升级和诊断本仓库的本机 MCP 与 OpenAI 
 
 先读仓库 README.md、docs/INSTALL_WITH_CODEX.md、docs/TROUBLESHOOTING.md。
 
-安装前确认用户明确授权的 root/mode；默认 HOME 只读。没有授权不要开启 HOME 全范围写入、shell、删除或系统服务。
+安装前交互确认目录与模式：默认目录候选 ~/，也可由用户指定其他目录；必须让用户选择只读或读写，已有明确选择不重复询问。读写时再确认 write_roots，不默认采用任何个人项目目录。程序安全默认仍是 HOME 只读。没有授权不要开启 HOME 全范围写入、shell、删除或系统服务。
 先运行 bootstrap.py --plan，再执行对应系统的安装器。优先脚本而非手写 Codex TOML。配置同名冲突时停止该步，保留已有条目。不要无条件 rm -rf 或覆盖整个配置文件。
 
-密钥只能由用户在本机隐藏输入并进入 OS keystore；不能向用户索取聊天中的 key，也不能把 key 放在命令参数、日志、环境文件或源码。缺 TTY/凭据库权限时明确报告，不回退明文。
+Tunnel ID 和 key 均由本人在独立本机终端隐藏输入：tunnel configure 录入 ID，key status 检查现有凭据，需要时 key set 录入 key 到 OS keystore。不能在聊天中索取/复述实际值，也不能通过 write_stdin、命令参数或生成源码转发它们。不显示完整值或尾号，不 cat 原始配置。无 TTY、隐藏输入不可用或凭据库授权失败就暂停此步，继续其他独立检查；不回退明文。ID必要时存本机受保护配置，不承诺底层工具/系统审计完全不留痕。
 
 先实际运行 self-test，再按授权配置 Tunnel 并运行 doctor --with-tunnel。没有调用或失败的项目不得标为成功。长驻运行需单独终端或用户明确授权的 OS 服务；不将 agent 的后台未完成任务假称已部署。
 

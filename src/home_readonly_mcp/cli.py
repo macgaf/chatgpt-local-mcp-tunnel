@@ -16,6 +16,7 @@ from .credentials import save_key, load_key
 from .errors import Fault, normalize_error, redact
 from .onboarding import (configure, load_settings, save_settings, register_codex,
     install_tunnel_client, tunnel_init, tunnel_doctor, tunnel_run, child_environment)
+from .interactive import configure_tunnel_interactive
 from .policy import APP, Policy, locations
 from .storage import digest, write_private
 
@@ -122,7 +123,7 @@ def parser():
     code.add_argument('--codex-bin')
     subs.add_parser('install-tunnel-client',help='下载官方完整发行包并核对 SHA256SUMS')
     tunnel = subs.add_parser('tunnel')
-    tunnel.add_argument('action',choices=['init','doctor','run'])
+    tunnel.add_argument('action',choices=['configure','init','doctor','run'])
     diag = subs.add_parser('doctor')
     diag.add_argument('--with-tunnel',action='store_true')
     diag.add_argument('--network',action='store_true')
@@ -169,7 +170,10 @@ def main(argv=None):
             if args.action=='run':
                 tunnel_run(args.config)
                 return 0
-            result = tunnel_init(args.config) if args.action=='init' else tunnel_doctor(args.config)
+            if args.action == 'configure':
+                result = configure_tunnel_interactive(args.config)
+            else:
+                result = tunnel_init(args.config) if args.action=='init' else tunnel_doctor(args.config)
         else:
             result = doctor(args.config,args.with_tunnel,args.network)
             if args.bundle:

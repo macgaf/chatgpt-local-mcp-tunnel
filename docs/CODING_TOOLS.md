@@ -17,7 +17,7 @@ v0.4 保留 v0.3 的图片、PDF、ZIP、二进制和安全写入接口，并补
 ## 本机开启命令
 
 ```bash
-local-mcp configure --root "$HOME/git_local" --mode read_write
+# root/mode 须先由用户选择；这里不预设个人目录或读写权限。
 local-mcp configure --enable-commands --acknowledge-unsandboxed-commands
 # 关闭：
 local-mcp configure --disable-commands
