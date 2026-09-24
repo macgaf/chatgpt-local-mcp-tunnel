@@ -11,4 +11,7 @@
 - 新增分层 doctor、诊断 bundle、安装提示词/Skill、Linux 服务与非文本适配器设计文档。
 - 核心 stdio 改为标准库实现，移除未在旧容器完成运行验收的 MCP SDK 依赖。Python 最低要求升为 3.11。
 - 旧 .env.example 等通配符 force_allow 不再自动放行；迁移只保留具体文件例外。敏感文件保护与路径约束收紧。
-- 108 项隔离测试通过；外部客户端/OS 原生凭据库验收状态见 TEST_REPORT.md。
+- 112 项隔离测试通过；外部客户端/OS 原生凭据库验收状态见 TEST_REPORT.md。
+
+- 根据实际 Windows CI 修复 UTF-8 子进程解码、跨平台换行样本与 systemd 平台范围；保留原文件 CRLF，不通过文本规范化破坏哈希/内容。
+- 修复提交在 GitHub Hosted macOS、Ubuntu、Windows 的测试与真实 stdio 自检均通过，目标机及原生凭据/云端验收边界不变。

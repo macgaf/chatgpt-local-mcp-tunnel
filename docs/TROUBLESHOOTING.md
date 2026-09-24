@@ -26,6 +26,7 @@
 | INVALID_ARCHIVE / UNSAFE_ARCHIVE_MEMBER | ZIP 损坏/危险成员路径 | 不解压到 HOME；重新生成安全包 |
 | ARCHIVE_BOMB_LIMIT / DUPLICATE_ARCHIVE_MEMBER | 压缩炸弹阈值/名称歧义 | 拆包或去除重复；不忽略校验 |
 | INTERACTIVE_SECRET_REQUIRED | 无 TTY，不能安全录入 key | 在本机终端 key set，不粘贴到聊天 |
+| UNSUPPORTED_CREDENTIAL_SOURCE | 在非 Linux 上选择了 systemd | macOS/Windows 改用 native keyring；不是放宽 POSIX 权限位检查 |
 | KEYSTORE_UNAVAILABLE / KEYSTORE_READ_FAILED | 无 backend、库锁定、D-Bus/session 等 | 安装依赖、解锁；Linux server 明确配置 systemd；不降级明文 |
 | DEPENDENCY_NOT_FOUND / TUNNEL_CLIENT_NOT_FOUND | 程序缺失或 PATH 错 | 使用安装器/输出的绝对路径 |
 | CHECKSUM_MISMATCH / RELEASE_COMPANION_MISSING | 发行包校验失败/缺 cloudflared | 停止，使用官方完整包，不跳过校验 |
