@@ -175,6 +175,7 @@ def test_native_exit_code_preserved(space,exit_code):
 ])
 def test_powershell_status_semantics(space,script,expected):
     p,svc=space[2:];p.enable_commands=True
-    result=svc.run_command(script)
-    assert result['completed'] and result['exit_code']==expected
-    assert result['succeeded']==(expected==0)
+    result=svc.run_command(script,timeout_seconds=90)
+    assert result['completed'] and result['state']=='exited', result
+    assert result['exit_code']==expected, result
+    assert result['succeeded']==(expected==0), result

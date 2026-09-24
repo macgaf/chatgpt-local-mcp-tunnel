@@ -86,6 +86,10 @@ class CommandManager:
                             '安装或修复系统 shell；不使用任意下载的执行程序。')
             argv = [shell,'-NoProfile','-NonInteractive','-Command',powershell_command(command)] if os.name=='nt' else [shell,'-c',command]
             env = child_environment()
+            if os.name == 'nt':
+                # The stripped environment must still provide built-in cmdlet discovery.
+                # Do not inherit repository-controlled/user-injected module search paths.
+                env['PSModulePath'] = str(Path(shell).resolve().parent / 'Modules')
             # Commands do not inherit runtime keys, Python injection vars or shell rc env.
             job = ProcessJob(argv,p,env,timeout_seconds,self.policy.max_command_output_bytes)
             self.jobs[job.id] = job
