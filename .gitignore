@@ -1,31 +1,24 @@
-# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
 .venv/
 venv/
-
-# Test / tooling caches
 .pytest_cache/
-.mypy_cache/
-.ruff_cache/
 .coverage
 htmlcov/
-
-# Local configuration and secrets
+.mypy_cache/
+.ruff_cache/
 .env
 .env.*
 !.env.example
-*.pem
 *.key
+*.pem
 *.p12
 *.pfx
-
-# macOS / editors
 .DS_Store
-.vscode/
-.idea/
-
-# Local runtime state
 logs/
 *.log
+config.local.json
+diagnostic-*.json
+build/
+dist/

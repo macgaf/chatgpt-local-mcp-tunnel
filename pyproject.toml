@@ -3,16 +3,25 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "home-readonly-mcp"
-version = "0.2.0"
-description = "Read-only MCP server for a user's HOME directory with allow/deny policy enforcement"
-requires-python = ">=3.10"
-dependencies = [
-  "mcp==2.2.0",
-]
+name = "chatgpt-local-mcp-tunnel"
+version = "0.3.0"
+description = "Local files, media previews, native credential storage and onboarding for ChatGPT MCP Tunnel"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+media = ["Pillow>=11,<13", "pypdfium2>=4.30,<6"]
+keyring = ["keyring>=25,<27"]
+heif = ["pillow-heif>=0.22,<2", "Pillow>=11,<13"]
+dev = ["pytest>=8,<10", "jsonschema>=4,<5"]
 
 [project.scripts]
+local-mcp = "home_readonly_mcp.cli:main"
 home-readonly-mcp = "home_readonly_mcp.server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
