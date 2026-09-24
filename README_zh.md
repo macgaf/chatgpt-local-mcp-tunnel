@@ -2,9 +2,9 @@
 
 **让 ChatGPT 直接分析和修改你的本地项目。**
 
-版本：**v0.4.0** · 支持 macOS / Windows / Linux · 默认 HOME 只读
+版本：**v0.4.0** · 安装分支：**`main`** · 支持 macOS / Windows / Linux · 默认 HOME 只读
 
-[这是什么](#what) · [主要能力](#capabilities) · [配置网站](#platform) · [本机安装](#install) · [故障排查](#troubleshooting) · [Codex 激活与示例](#codex) · [ChatGPT 激活与示例](#chatgpt) · [日志](#logs)
+[这是什么](#what) · [主要能力](#capabilities) · [配置网站](#platform) · [本机安装](#install) · [故障排查](#troubleshooting) · [Codex 激活与示例](#codex) · [ChatGPT 激活与示例](#chatgpt) · [日志](#logs) · [更新与升级](#upgrade)
 
 <a id="what"></a>
 ## 1. 这是什么？解决什么问题？
@@ -113,12 +113,14 @@ Runtime key 的所属用户／服务账号也必须对目标 Tunnel 有权限。
 
 **目录不固定为某个人的项目路径。**默认候选是本用户目录 `~/`（等同 `~/.`），也可选择任意已存在且有权访问的更具体目录。**只读和读写都可选，由用户在安装前确认**，不能因“本地编程”自动开写权限。
 
+**源码入口统一为 `main`。**v0.4.0 的编程工具、交互安装和持久日志已纳入主线；原功能分支不再作为安装入口。已有安装更新方式见 [第 3.7 节](#upgrade)。
+
 **下面的提示词可直接复制，无须事先填写目录、模式、Tunnel ID 或 key：**
 
 ```text
 请在本机安装并配置 chatgpt-local-mcp-tunnel，不只是告诉我命令。
 仓库：https://github.com/macgaf/chatgpt-local-mcp-tunnel
-版本：v0.4.0；main 未包含时使用 feat/local-mcp-v0.3 分支，并核对当前安装文档。
+版本：v0.4.0（包含交互安装和持久日志），从 main 分支安装，并核对当前安装文档。
 
 先通过交互确认以下非敏感选项；本次对话已经明确的选项直接复用，不重复询问：
 - 访问根目录：使用默认 ~/（本用户目录），还是我指定的其他目录？不要默认采用开发者个人目录。
@@ -128,7 +130,7 @@ Runtime key 的所属用户／服务账号也必须对目标 Tunnel 有权限。
 
 Tunnel ID 和 Runtime API key 不在聊天中询问、填写或复述；由我在独立本机终端隐藏输入。不要通过工具调用的 stdin 参数替我转发这些值。
 
-1. 优先检查已有本机仓库的分支、版本及未提交修改；不存在才克隆。不要覆盖本地修改或强制切换脏工作区。
+1. 优先检查已有本机仓库的分支、版本及未提交修改；不存在才克隆 main。已有仓库先确认 origin 指向上述仓库，再获取远端状态。仅在工作区干净且本地 main 可快进时切换／更新；存在本地修改或分叉时暂停该步，不覆盖修改、不强制重置。
 2. 阅读 README、bootstrap.py、docs/INSTALL_WITH_CODEX.md；核查 Python 3.11+、Git、Codex CLI。缺系统依赖时说明并征求授权，不自行 sudo。
 3. 目录和模式确认后，先用同样参数执行 bootstrap.py --plan，再安装完整组件、注册 Codex并安装官方 Tunnel 客户端。macOS/Linux 使用 install.sh，Windows 使用 Python 执行 bootstrap.py。不要把 core-only 当成已经安装图片/PDF能力。
 4. 根据我的选择设置 root、mode、write_roots，明确关闭命令和推送；保留其他 MCP 条目、启动器、凭据来源及无关设置。同名配置冲突时比较差异，不覆盖整个 Codex 配置。不要打印包含真实 ID/key 的配置全文。
@@ -349,6 +351,29 @@ local-mcp logs configure --level INFO --max-mib 5 --keep 5 --days 14
 ```
 
 完整字段、轮转/保留规则、权限与排错方法见 [日志使用说明](docs/LOGGING.md)。`doctor --bundle` 仍仅导出诊断摘要，不自动附带日志。日志管理是本机 CLI 功能，MCP 工具数量不变。
+
+<a id="upgrade"></a>
+### 3.7 更新到 main 并升级本机安装
+
+**拉取源码不等于升级已安装的 MCP。** 安装器使用版本化安装目录；更新本机仓库后，还需重新执行安装器，并重启由你管理的 MCP／Tunnel 实例。版本号仍为 `0.4.0`，仅凭 `--version` 不能区分早期源码和包含交互安装、日志的主线源码；请同时记录安装所用的 Git 提交。
+
+**复制给本机 Codex：**
+
+```text
+请将本机 chatgpt-local-mcp-tunnel 更新到 origin/main，并升级现有安装。
+
+1. 先定位已存在的仓库并核对 origin 地址、当前分支、提交及未提交修改。不要扫描或输出凭据文件。
+2. 从正确远端获取状态。工作区有修改、本地 main 与 origin/main 分叉、存在未完成的合并时，暂停源码更新并说明原因，不 stash/reset/clean/强制覆盖，不删除原分支。
+3. 条件满足时切换到 main，并只做快进更新。原 feat/local-mcp-v0.3 分支无需删除，也不再作为安装来源。
+4. 阅读 main 的 README、bootstrap.py 和 docs/INSTALL_WITH_CODEX.md。保留用户已选 root、mode、write_roots、文件规则、密钥来源、日志设置、Codex 中其他条目和无关配置。不要因升级自动开启命令或 Git 推送，也不要擅自收回已有明确授权；需要改变权限时先让我确认。
+5. 先运行安装计划，再执行对应平台的完整安装器；不要用 core-only 替代已有媒体依赖，也不要覆盖同名但不同的 Codex 条目。已有正确 Tunnel 和凭据优先复用，不把实际值带进聊天或命令参数。
+6. 运行 self-test，检查 logs path、logs show；凭据可用时再运行 doctor --with-tunnel。安装器检查失败时，不把它记为升级成功。
+7. 提醒我结束并重启自己管理的旧 MCP／Tunnel 进程，刷新 Codex／ChatGPT 的工具列表；不擅自终止未知进程，不建立开机自启。
+
+报告源码提交、安装版本、启动器和配置路径、实际权限开关、日志位置，以及哪些客户端验收完成或仍未执行。不要输出 Tunnel ID/key 正文或尾号。
+```
+
+`main` 的合并记录见 [PR #1](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/1)。合并只更新 GitHub 源码，不会替用户在本机安装、重启服务或重新授权。
 
 ## 4. 详细说明与验证记录
 

@@ -85,3 +85,11 @@ FileMCP 原作可能报 `Command session is active; finish or cancel it before f
 `LOG_CONFIG_INVALID`：logging 配置无效，回退默认日志设置记录启动故障；请在本机修正配置。`LOG_WRITE_FAILED`：可能是磁盘满、权限不足、锁超时或不安全日志路径；stderr 会单独告警，doctor 的 logging 检查会显示失败。**业务操作可能已经完成，不能因为日志缺失直接重试写入。**
 
 日志关闭只停止后续记录，不删除既有记录。DEBUG 也不会持久保存命令/文件正文或凭据。不要为了读取日志解除私有状态目录的 MCP 保护；使用 Codex 原有终端工具。
+
+## main 已更新，但本机仍是旧功能
+
+先确认本机仓库的 origin、分支和 HEAD。安装来源应为 `main`；不要再按旧文档回退到功能分支。工作区有未提交修改或本地 main 分叉时停止更新，不强制覆盖。
+
+`git pull` 只更新仓库，不更新已复制到版本化安装目录的 MCP。按 README [第 3.7 节](../README.md#upgrade) 重新执行完整安装器，再重启由用户管理的 MCP／Tunnel 实例并刷新客户端工具发现。v0.4.0 的交互安装和日志修订沿用相同版本号，需同时核对源码提交、安装器结果及 `logs path`，不能只看 `--version`。
+
+排查时保留现有 root/mode/write_roots、凭据、日志配置和其他 Codex 条目；不得通过重新安装扩大权限或要求用户把 ID/key 发到聊天。

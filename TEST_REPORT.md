@@ -1,3 +1,31 @@
+# 主线整合核验（2026-09-25）
+
+安装来源统一为 `main`，功能整合记录见 [PR #1](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/1)。本次仅更新文档与合并历史，保留功能分支；没有修改运行时代码、测试、依赖、工作流、版本号或用户本机配置。
+
+## 合并代码基线与三平台证据
+
+包含交互安装和持久日志的代码提交：`3850b34bd45533da28fe34b241414c6c4bd8c003`。源码树：`d6022a0eb782fa5863fbb6b99dce098a1b2d4bf6`。已对本轮使用的源码副本重算 Git tree，确认与该基线一致后再修改文档。
+
+本次重新读取了 [Actions run 36024605104](https://github.com/macgaf/chatgpt-local-mcp-tunnel/actions/runs/36024605104) 的 Jobs API，确认：
+
+| 系统 | pytest | 真实 stdio self-test | Job ID |
+|---|---|---|---|
+| Ubuntu | success | success | 107717828722 |
+| Windows | success | success | 107717829101 |
+| macOS | success | success | 107717829154 |
+
+完整测试集为 223 个用例，各平台专用 skip 不计入通过数。下面的日志修订报告保留了原本地 218 passed、5 skipped 的分组记录。这些结果归属于上述代码提交，不能说成在用户机器上执行的测试。
+
+## 文档核验范围
+
+两份 README 同步；主线安装提示词不再包含“main 未包含时使用功能分支”的回退指令。安装细则、Skill、排错和变更记录同步主线来源，并保留目录／模式交互确认、凭据本机隐藏输入、日志入口和安全升级边界。检查 Markdown 相对链接／显式锚点、38 个工具名与注册表一致；验证改动仅为 Markdown，原运行代码及工作流未改。
+
+GitHub 合并和重新安装是不同操作；本轮没有执行用户本机安装、原生 keystore、真实 Tunnel/ChatGPT 或 MCP Git 网络推送验收。后续 Actions 结果以对应提交／合并提交的实际运行记录为准。
+
+---
+
+## 以下为各次修订的历史记录
+
 # 持久日志修订验证（2026-09-24）
 
 基线为 `f2a9533f8860d0de4d3b0870a4925129ebf732ad`；从附件解出的全部源码已重算 Git tree，与远端 `9ba000c01c26e86d77901a8f645c573d7dd718ad` 完全一致，再开始修改。
