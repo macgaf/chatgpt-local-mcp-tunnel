@@ -13,3 +13,7 @@ MCP image results must contain ImageContent, not Base64 text pretending to be an
 No blind overwrite. Preserve SHA preconditions, per-path OS lease, backups and post-write verification. Do not remove live lock files or kill foreign processes.
 
 Installation must preserve other tools/configurations, remain rerunnable and never fall back to plaintext secret storage. System/package-manager permissions require user approval.
+
+For v0.4 coding tools, read docs/CODING_TOOLS.md. Keep shell execution and Git push OFF by default; never claim root/deny rules sandbox an opted-in shell. Git uses fixed argv and guarded metadata, with separate push URL authorization. Run native Git/command tests in synthetic repositories, never push to the user's real remote during tests.
+
+Cross-file patches must prevalidate all edits, lock in deterministic order, and never overwrite external changes during rollback. Preserve legacy apply_patch arguments. Batch reads must prevalidate a fixed read-only allowlist. User regex must run in the timeout-isolated worker, not in the MCP dispatcher. Verify actual exit codes, cursor exhaustion and child cleanup.

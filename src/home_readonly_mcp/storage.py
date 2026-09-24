@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import stat
 import time
+import sys
 import uuid
 from .errors import Fault
 
@@ -91,7 +92,10 @@ def read_bytes(policy, path, limit=None):
 class Lease:
     def __init__(self, state, path, operation, request_id=None):
         self.base = private_dir(Path(state) / 'locks')
-        self.path = self.base / (digest(os.path.normcase(str(path)).encode()) + '.lock')
+        lock_name=os.path.normcase(str(path))
+        if sys.platform=='darwin':
+            lock_name=lock_name.casefold()
+        self.path = self.base / (digest(lock_name.encode()) + '.lock')
         self.meta = {'pid': os.getpid(), 'operation': operation, 'path': str(path),
                      'started_at': time.time(), 'request_id': request_id or uuid.uuid4().hex,
                      'lock_type': 'local_mcp_path_lease'}

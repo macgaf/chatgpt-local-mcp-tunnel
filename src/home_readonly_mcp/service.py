@@ -11,9 +11,20 @@ from .storage import Lease, commit_bytes, digest, parent_handle, read_bytes, exp
 from . import media
 
 
-class HomeService:
+from .command_tools import CommandManager, CommandMixin
+from .git_tools import GitTools, GitMixin
+from .search_tools import SearchMixin
+from .patches import apply_changes
+
+
+class HomeService(SearchMixin, GitMixin, CommandMixin):
     def __init__(self, policy):
         self.policy = policy
+        self.commands = CommandManager(policy)
+        self.git = GitTools(self)
+
+    def close(self):
+        self.commands.close()
 
     def visual_probe(self):
         return media.visual_probe(self.policy)
@@ -187,6 +198,7 @@ class HomeService:
 
     def _write(self, path, data, expected, dry_run):
         p = self.policy.require(path, write=True, must_exist=False)
+        self.commands.guard_mutation([p])
         with Lease(self.policy.state_dir, p, 'write_file'):
             old = read_bytes(self.policy, str(p))[1] if p.exists() else None
             return commit_bytes(self.policy, p, data, old, expected, dry_run=dry_run)
@@ -194,31 +206,23 @@ class HomeService:
     def edit_file(self, path, old_text, new_text, expected_sha256, dry_run=False):
         return self.apply_patch(path, [{'old_text': old_text, 'new_text': new_text}], expected_sha256, dry_run)
 
-    def apply_patch(self, path, edits, expected_sha256, dry_run=False):
-        """Ordered exact replacements in ONE file. No false multi-file transaction guarantee."""
-        if not 1 <= len(edits) <= 64:
-            raise ValueError('edits length must be 1..64')
-        p = self.policy.require(path, write=True)
-        with Lease(self.policy.state_dir, p, 'apply_patch'):
-            old = read_bytes(self.policy, str(p))[1]
-            expected_matches(old, expected_sha256)
-            text = old.decode('utf-8')
-            for index, edit in enumerate(edits):
-                before, after = edit['old_text'], edit['new_text']
-                if not before or text.count(before) != 1:
-                    raise Fault('AMBIGUOUS_EDIT', '替换目标必须恰好出现一次。',
-                                '零次表示版本变化，多次表示定位不唯一。', '重新读取并扩大 old_text 上下文。', edit_index=index)
-                text = text.replace(before, after, 1)
-            result = commit_bytes(self.policy, p, text.encode(), old, expected_sha256, dry_run=dry_run)
-            if dry_run:
-                diff = ''.join(difflib.unified_diff(old.decode().splitlines(True), text.splitlines(True),
-                                                  fromfile=path, tofile=path))
-                result['diff'] = diff[:32000]
-                result['diff_truncated'] = len(diff) > 32000
-            return result
+    def apply_patch(self, path=None, edits=None, expected_sha256=None, dry_run=False, changes=None):
+        """Legacy single-file form or cross-file changes; exactly one form per call."""
+        if changes is not None:
+            if path is not None or edits is not None or expected_sha256 is not None:
+                raise ValueError('changes cannot be combined with legacy path/edits/expected_sha256')
+            return apply_changes(self,changes,dry_run)
+        if path is None or edits is None:
+            raise ValueError('provide changes or legacy path and edits')
+        original_changes=[{'path':path, **e, 'expected_sha256':expected_sha256} for e in edits]
+        result=apply_changes(self,original_changes,dry_run)
+        if dry_run:
+            return {'ok':True,'dry_run':True,**result['files'][0]}
+        return result['files'][0]
 
     def create_directory(self, path):
         p = self.policy.require(path, write=True, must_exist=False)
+        self.commands.guard_mutation([p])
         with Lease(self.policy.state_dir, p, 'create_directory'):
             if p.is_dir():
                 return {'ok': True, 'created': False, 'path': self.policy.relative(p)}
@@ -280,7 +284,7 @@ class HomeService:
 
     def diagnose(self, path=None):
         result = {'ok': True, 'mode': self.policy.mode, 'root': str(self.policy.root),
-                  'shell_jobs': 'not implemented; this server has no global command-session lock',
+                  'shell_jobs': {'enabled': self.policy.enable_commands, 'active': [j.id for j in self.commands.jobs.values() if not j.done.is_set()], 'gate': 'overlapping workspace only'},
                   'windows_security': 'path checks, not an OS sandbox' if os.name == 'nt' else 'POSIX no-follow directory descriptors'}
         if path is not None:
             p = self.policy.require(path, must_exist=False)

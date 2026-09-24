@@ -12,5 +12,11 @@
   "max_search_files": 10000,
   "max_search_results": 200,
   "max_image_pixels": 80000000,
-  "max_image_bytes": 2097152
+  "max_image_bytes": 2097152,
+  "enable_commands": false,
+  "enable_git_push": false,
+  "git_push_remotes": [],
+  "git_credential_helper": "",
+  "git_user_name": "",
+  "git_user_email": ""
 }

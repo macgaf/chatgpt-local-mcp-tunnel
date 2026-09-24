@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0 — 2026-09-24
+
+- 新增七个固定 Git 接口；安全参数、元数据检查和路径过滤，push 独立授权及远端白名单。
+- 新增默认关闭的命令执行、去重请求、长任务/输出游标/取消/超时与自有子进程清理；仅相交工作区门控，不使用全局活动命令锁。
+- 新增 glob/grep/search_code/repo_overview/workspace_context；Python re 在超时隔离进程中运行，pathspec 遵循忽略规则。
+- 新增最多 16 项 batch_read，固定只读白名单、预校验、逐项错误与响应预算。
+- apply_patch 扩展跨文件 changes，原 SHA 必填、整批预检、确定序多锁、备份和尽力回滚；保留旧参数。
+- 更新安装依赖、权限开关、工具清单和完整编程接口文档。
+- 不将 Shell 冒充 OS 沙箱；不宣称跨文件/崩溃原子性或已真实远端 push 验收。
+
 ## 0.3.0 — 2026-09-24
 
 - HOME 默认只读，支持项目 root、read_write、write_roots；配置/密钥管理不作为远程 MCP 工具暴露。

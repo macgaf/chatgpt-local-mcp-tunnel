@@ -4,12 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chatgpt-local-mcp-tunnel"
-version = "0.3.0"
+version = "0.4.0"
 description = "Local files, media previews, native credential storage and onboarding for ChatGPT MCP Tunnel"
 requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
+search = ["pathspec>=0.12,<1"]
 media = ["Pillow>=11,<13", "pypdfium2>=4.30,<6"]
 keyring = ["keyring>=25,<27"]
 heif = ["pillow-heif>=0.22,<2", "Pillow>=11,<13"]

@@ -42,7 +42,8 @@ def save_settings(path, data):
     os.replace(temp,p)
 
 
-def configure(path, *, root=None, mode=None, tunnel_id=None, key_source=None, allow_home_write=False):
+def configure(path, *, root=None, mode=None, tunnel_id=None, key_source=None, allow_home_write=False,
+              enable_commands=None, enable_git_push=None, acknowledge_unsandboxed_commands=False):
     data = load_settings(path)
     data.setdefault('root','~')
     data.setdefault('mode','read_only')
@@ -50,6 +51,12 @@ def configure(path, *, root=None, mode=None, tunnel_id=None, key_source=None, al
     for key,value in (('root',root),('mode',mode),('tunnel_id',tunnel_id),('key_source',key_source)):
         if value is not None:
             data[key] = value
+    if enable_commands is True and not acknowledge_unsandboxed_commands:
+        raise Fault('COMMAND_RISK_ACK_REQUIRED','开启 Shell 需要明确确认风险。',
+                    'Shell 不受文件黑名单或 root 沙箱限制，只有 cwd 被检查。',
+                    '在本机显式添加 --acknowledge-unsandboxed-commands；没有自动开启。')
+    for key,value in (('enable_commands',enable_commands),('enable_git_push',enable_git_push)):
+        if value is not None:data[key]=value
     if data.get('tunnel_id') and not re.fullmatch(r'tunnel_[0-9a-f]{32}',data['tunnel_id']):
         raise Fault('INVALID_TUNNEL_ID', 'Tunnel ID 格式不正确。', '应为 tunnel_ 后接 32 位小写十六进制字符。',
                     '复制 Platform Tunnels 页面提供的完整 ID。')

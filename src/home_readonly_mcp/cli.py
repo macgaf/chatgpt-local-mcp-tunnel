@@ -111,6 +111,11 @@ def parser():
     conf.add_argument('--tunnel-id')
     conf.add_argument('--key-source',choices=['keyring','systemd','environment'])
     conf.add_argument('--allow-home-write',action='store_true')
+    conf.add_argument('--enable-commands',dest='enable_commands',action='store_true',default=None)
+    conf.add_argument('--disable-commands',dest='enable_commands',action='store_false')
+    conf.add_argument('--enable-git-push',dest='enable_git_push',action='store_true',default=None)
+    conf.add_argument('--disable-git-push',dest='enable_git_push',action='store_false')
+    conf.add_argument('--acknowledge-unsandboxed-commands',action='store_true')
     key = subs.add_parser('key')
     key.add_argument('action',choices=['set','status'])
     code = subs.add_parser('codex-install',help='幂等注册到 Codex，不覆盖同名不同配置')
@@ -138,7 +143,9 @@ def main(argv=None):
             result = self_test()
         elif args.command=='configure':
             result = configure(args.config,root=args.root,mode=args.mode,tunnel_id=args.tunnel_id,
-                               key_source=args.key_source,allow_home_write=args.allow_home_write)
+                               key_source=args.key_source,allow_home_write=args.allow_home_write,
+                               enable_commands=args.enable_commands,enable_git_push=args.enable_git_push,
+                               acknowledge_unsandboxed_commands=args.acknowledge_unsandboxed_commands)
         elif args.command=='key':
             settings = load_settings(args.config)
             if args.action=='set':

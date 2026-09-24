@@ -72,6 +72,16 @@ class Policy:
     max_search_results: int = 200
     max_image_pixels: int = 80_000_000
     max_image_bytes: int = 2 * 1024 * 1024
+    enable_commands: bool = False
+    enable_git_push: bool = False
+    git_push_remotes: list[str] = field(default_factory=list)
+    git_credential_helper: str = ''
+    git_user_name: str = ''
+    git_user_email: str = ''
+    max_command_timeout: int = 3600
+    max_command_output_bytes: int = 1024 * 1024
+    max_active_commands: int = 2
+    max_patch_bytes: int = 32 * 1024 * 1024
     state_dir: Path = field(default_factory=lambda: locations()[2])
     config_path: Path | None = None
     protected_paths: list[Path] = field(default_factory=list)
@@ -86,7 +96,7 @@ class Policy:
             raise Fault('INVALID_ROOT', '授权根目录不存在。', str(self.root), '先创建或选择已存在的目录。')
         if self.mode not in ('read_only', 'read_write') or self.default_policy not in ('allow', 'deny'):
             raise ValueError('mode must be read_only/read_write; default_policy must be allow/deny')
-        for name in ('allow', 'deny', 'force_allow', 'write_roots'):
+        for name in ('allow', 'deny', 'force_allow', 'write_roots', 'git_push_remotes'):
             if not isinstance(getattr(self, name), list) or not all(isinstance(x, str) for x in getattr(self, name)):
                 raise ValueError(f'{name} must be a list of strings')
         # Exact exceptions only: no broad wildcard can expose credentials by accident.
@@ -97,6 +107,20 @@ class Policy:
             n = getattr(self, name)
             if type(n) is not int or n <= 0:
                 raise ValueError(f'{name} must be a positive integer')
+        for name in ('enable_commands','enable_git_push'):
+            if type(getattr(self,name)) is not bool:
+                raise ValueError(f'{name} must be a boolean')
+        if self.git_credential_helper not in ('','osxkeychain','manager','libsecret'):
+            raise ValueError('git_credential_helper must be a supported native helper name')
+        for name in ('git_user_name','git_user_email'):
+            value=getattr(self,name)
+            if not isinstance(value,str) or len(value)>256 or any(c in value for c in '\r\n\0'):
+                raise ValueError(f'invalid {name}')
+        for name, ceiling in (('max_command_timeout',3600),('max_command_output_bytes',8*1024*1024),
+                               ('max_active_commands',8),('max_patch_bytes',128*1024*1024)):
+            value=getattr(self,name)
+            if type(value) is not int or not 1<=value<=ceiling:
+                raise ValueError(f'{name} must be 1..{ceiling}')
         # Limits are both resource controls and transport guarantees, not just defaults.
         if self.max_file_size > 256 * 1024 * 1024 or self.max_image_bytes > 4 * 1024 * 1024:
             raise ValueError('max_file_size <= 256 MiB; max_image_bytes <= 4 MiB')
@@ -197,7 +221,13 @@ class Policy:
                 'allow': self.allow, 'deny': self.deny, 'force_allow': self.force_allow,
                 'write_roots': self.write_roots, 'protected_credentials': HARD_DENY,
                 'max_file_size': self.max_file_size, 'max_text_output_bytes': self.max_text_output_bytes,
-                'policy_editable_via_mcp': False, 'shell_enabled': False,
+                'policy_editable_via_mcp': False,
+                'shell_enabled': self.enable_commands and self.mode == 'read_write',
+                'git_push_enabled': self.enable_git_push and self.mode == 'read_write',
+                'git_push_remotes': self.git_push_remotes,
+                'max_active_commands': self.max_active_commands,
+                'max_command_timeout': self.max_command_timeout,
+                'command_security': 'Explicitly opted-in shell is NOT an OS sandbox; root/deny rules only constrain file tools and command cwd.',
                 'warning': 'HOME-wide read_write grants broad file access; prefer project write_roots.'}
 
 

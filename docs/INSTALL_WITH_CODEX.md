@@ -34,3 +34,7 @@
 在客户端已具备并授权 Computer Use 时，可用它导航 Platform 的 Tunnel/工作区关联页面、ChatGPT 的 Developer Mode/App 页面。密钥生成/显示/复制页面交回用户，不截取或转录 key；登录、验证码、系统授权由用户完成。脚本负责文件与配置修改，避免用坐标点击编辑配置文件。
 
 本仓库没有内置桌面遥控组件，不会要求安装不明 Computer Use 扩展，也不会改变 ChatGPT 订阅或跳过权限。
+
+## v0.4 补充
+
+完整安装包含 search/pathspec。安装和升级均保持 enable_commands=false、enable_git_push=false（除非本机此前明确配置）；不要因需求里提到编程就自动开 Shell 或网络推送。获得明确授权后，再按 docs/CODING_TOOLS.md 通过本机 configure 开启。Shell 非沙箱风险确认、远端 URL 白名单与凭据库授权是独立步骤。

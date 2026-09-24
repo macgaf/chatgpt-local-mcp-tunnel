@@ -1,10 +1,31 @@
 # chatgpt-local-mcp-tunnel
 
-本机文件 MCP：**可配置只读/读写、原生图片传输、PDF 页面预览、ZIP 内文件读取、安全凭据存储、Codex/Tunnel 自动安装与分层诊断**。
+本机编程 MCP：**文件/媒体读写、Git、可选命令执行、代码检索、批量读取、跨文件补丁、安全凭据存储与自动安装诊断**。
 
 模型仍在你选择的客户端中运行。ChatGPT 通过 Secure MCP Tunnel 访问本机；Codex 可直接启动同一 stdio 服务，不必绕 Tunnel。项目不调用 Responses API，也不假设某种订阅一定能/不能写入。最终工具可用性由本机配置、客户端支持及其授权共同决定。
 
-**当前版本：0.3.0。** 源码包与自动化测试已经实现；真实 ChatGPT 图片消费、真实 Tunnel 认证、macOS/Windows 凭据库仍须在目标机器验收，不能以本地测试代替。测试范围见 [TEST_REPORT.md](TEST_REPORT.md)。
+**当前版本：0.4.0。** 源码包与自动化测试已经实现；真实 ChatGPT 图片消费、真实 Tunnel 认证、macOS/Windows 凭据库仍须在目标机器验收，不能以本地测试代替。测试范围见 [TEST_REPORT.md](TEST_REPORT.md)。
+
+
+## v0.4 新增编程能力
+
+| 能力 | 接口 | 默认状态 |
+|---|---|---|
+| Git | `git_init/status/log/diff/add/commit/push` | 只读可查状态/历史/差异；推送独立关闭 |
+| 运行构建和测试 | `run_command/start_command/read_command_output/cancel_command` | 关闭，须本机明确开启 |
+| 代码检索/上下文 | `glob/grep/search_code/repo_overview/workspace_context` | 启用，遵循路径和忽略规则 |
+| 批量读取 | `batch_read` | 最多 16 个固定只读操作 |
+| 跨文件修改 | `apply_patch(changes=...)` | read_write 才启用；保留旧单文件参数 |
+
+完整参数、权限、用例及限制见 [编程工具说明](docs/CODING_TOOLS.md)。只读模式 24 个工具；读写模式默认 33 个；另行开启命令和推送后最多 38 个。
+
+开启命令需要在本机运行：
+
+```bash
+local-mcp configure --enable-commands --acknowledge-unsandboxed-commands
+```
+
+同时需要 `mode=read_write`。**Shell 不是 OS 沙箱，root/黑名单只能约束文件工具和命令 cwd，不能约束命令实际访问的其他文件/网络。** 安装和升级不会自动开启。推送需 `enable_git_push` 和明确的远端 URL 白名单，不能只靠提示词开启。
 
 ## 1. 最少步骤安装
 
@@ -16,7 +37,7 @@
 ./install.sh --root "$HOME/git_local" --mode read_write --register-codex --install-client
 ```
 
-`$HOME/git_local` 必须已存在；可换成实际项目目录。默认完整安装包括 Pillow、PDFium、keyring。iPhone HEIC 支持可额外加 `--heif`。
+`$HOME/git_local` 必须已存在；可换成实际项目目录。默认完整安装包括 Pillow、PDFium、keyring 和 pathspec。iPhone HEIC 支持可额外加 `--heif`。
 
 Windows PowerShell：
 
@@ -130,9 +151,9 @@ local-mcp configure --mode read_only
 
 写工具：`write_file`、`write_binary`、`edit_file`、`apply_patch`、`create_directory`、`restore_file`。
 
-已有文件必须提供刚读取的 `expected_sha256`；新文件可传 `MISSING`。覆盖前备份，使用同目录临时文件原子替换，再读回校验。支持 `dry_run` 预览，冲突不强制覆盖。`apply_patch` 是**一个文件内**的有序唯一文本替换，不是 unified-diff 解析器，也不是跨文件事务。
+已有文件必须提供刚读取的 `expected_sha256`；新文件可传 `MISSING`。覆盖前备份，使用同目录临时文件原子替换，再读回校验。支持 `dry_run` 预览，冲突不强制覆盖。`apply_patch` 现在支持跨文件 `changes`，继续兼容旧的单文件参数。它不是 unified-diff 解析器，也不是文件系统级多文件原子事务；整批预检、逐文件原子替换和失败恢复语义见编程工具说明。
 
-备份位于私有状态目录，通过 `list_backups(path)` 获得备份 ID，恢复仍要求当前文件哈希。备份保留原文件内容，具有敏感性；没有自动清理/保留期限，长期使用需监控磁盘。此版不提供 shell、Git push、删除目录或任意进程取消工具。
+备份位于私有状态目录，通过 `list_backups(path)` 获得备份 ID，恢复仍要求当前文件哈希。备份保留原文件内容，具有敏感性；没有自动清理/保留期限，长期使用需监控磁盘。此版不提供删除目录或任意外部进程取消；Shell/Git push 已实现但默认关闭，取消仅限本 runtime 启动的任务。
 
 本服务的按文件锁只约束合作的 MCP 实例；IDE 等外部编辑器不会遵守此锁。哈希复查可发现许多并发变化，但不能保证对非合作写入者实现操作系统级 compare-and-swap。写后发现冲突会明确报告“文件已提交但随后变化”，不能误当作未写入。
 
@@ -169,12 +190,12 @@ local-mcp doctor --with-tunnel --bundle ./diagnostic-local-mcp.json
 ## 9. 开发、测试与升级
 
 ```bash
-python3 -m pip install -e '.[dev,media]'
+python3 -m pip install -e '.[dev,media,search]'
 python3 -m pytest -q
 python3 -m home_readonly_mcp.cli self-test
 ```
 
-stdlib 核心不依赖 MCP SDK；实现有限的 stdio JSON-RPC、legacy initialize 以及 2026-07-28 self-contained discovery/tools/resources 子集，不提供 HTTP 服务、任意插件代码执行或后台任务协议。没有宣称通过完整 MCP 官方一致性认证。
+stdlib 核心不依赖 MCP SDK；实现有限的 stdio JSON-RPC、legacy initialize 以及 2026-07-28 self-contained discovery/tools/resources 子集，不提供 HTTP 服务或任意插件代码执行。命令会话由 start/read/cancel 工具管理，不宣称实现 MCP 通用后台任务协议。没有宣称通过完整 MCP 官方一致性认证。
 
 升级重新执行安装器。稳定 launcher 不变、版本化目录保留旧代码；安装探针通过后切换当前版本。首次发现 v0.2 配置会复制兼容项，原配置不动；旧通配符 force_allow 被取消并提示，权限仍保持只读。旧 Codex/MCP 条目不自动删除。root/mode/规则迁移后应再次 `policy_info` 验收。
 

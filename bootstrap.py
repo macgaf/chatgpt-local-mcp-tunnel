@@ -78,7 +78,7 @@ def main():
         venv.EnvBuilder(with_pip=not args.core_only).create(envdir)
         python = envdir/('Scripts/python.exe' if os.name=='nt' else 'bin/python')
         if not args.core_only:
-            packages = ['Pillow>=11,<13','pypdfium2>=4.30,<6','keyring>=25,<27']
+            packages = ['pathspec>=0.12,<1','Pillow>=11,<13','pypdfium2>=4.30,<6','keyring>=25,<27']
             if args.heif:
                 packages.append('pillow-heif>=0.22,<2')
             proc = subprocess.run([str(python),'-m','pip','install',*packages],env=child_environment(),check=False)

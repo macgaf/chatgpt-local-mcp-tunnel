@@ -1,0 +1,127 @@
+# v0.4 编程接口与权限
+
+## 可调用工具
+
+v0.4 保留 v0.3 的图片、PDF、ZIP、二进制和安全写入接口，并补齐：
+
+| 类别 | 接口 | 关键语义 |
+|---|---|---|
+| Git | git_init, git_status, git_log, git_diff, git_add, git_commit, git_push | 固定参数，不接收任意 Git flags；push 独立授权 |
+| 命令 | run_command, start_command, read_command_output, cancel_command | 默认关闭；非 OS 沙箱；退出状态、游标、超时与子进程清理 |
+| 检索 | glob, grep, search_code, repo_overview, workspace_context | 忽略规则、扫描预算、代码声明/标识符启发式排序 |
+| 批量读取 | batch_read | 1–16 个固定只读操作，全批校验，逐项结果和错误 |
+| 跨文件补丁 | apply_patch(changes=[...]) | 1–64 个跨文件有序精确替换，原 SHA 必填、全批预检、确定序锁、尽力回滚 |
+
+只读模式 24 个工具；读写、命令和推送均关闭时 33 个；开启命令增加 4 个，开启推送再增加 1 个，共 38 个。禁用的工具不会注册，服务实现也检查本地权限，不能靠提示词开启。
+
+## 本机开启命令
+
+```bash
+local-mcp configure --root "$HOME/git_local" --mode read_write
+local-mcp configure --enable-commands --acknowledge-unsandboxed-commands
+# 关闭：
+local-mcp configure --disable-commands
+```
+
+配置变化后重启 MCP/Tunnel 并刷新客户端工具列表。安装/升级不会自动开启 Shell 或推送。
+
+**警告：Shell 不是 OS 沙箱。** 只验证 cwd 位于授权可写范围；代码、命令和它启动的子进程拥有登录用户权限，能够访问其他目录/网络，也可能访问凭据。文件工具的 deny/root 规则不能约束任意 Shell。不要把此功能与“模型永远不能修改本服务配置/读取敏感文件”的保证同时宣传。需要强隔离时应在容器/独立 OS 用户/VM 中运行整个命令环境；本版未提供这层隔离。子进程不继承已知 API key、BASH_ENV、PYTHONPATH 等注入环境变量，但这不是对不可信命令的沙箱。
+
+### 短任务
+
+```json
+{"command":"python3 -m pytest -q","cwd":"demo","timeout_seconds":30,"request_id":"verify-demo-001"}
+```
+
+传给 `run_command`。必须检查 `completed`、`state`、`exit_code` 和 `succeeded`。`ok=true` 只表示工具成功返回了任务状态，**不表示命令通过**。输出过大时根据 `session_id/next_cursor/has_more` 继续读取。
+
+### 长任务
+
+```json
+{"request_id":"build-demo-001","command":"npm test","cwd":"demo","timeout_seconds":600}
+```
+
+传给 `start_command`，接着反复调用：
+
+```json
+{"session_id":"上一步返回的ID","cursor":0,"limit":65536}
+```
+
+工具为 `read_command_output`；下次用 `next_cursor`。只有终止状态且 `has_more=false` 才读完；`exit_code=0` 才可认定命令成功。`truncated=true` 表示旧输出已经淘汰，不代表完整日志。默认每个任务保留最近 1 MiB，支持增配至 8 MiB；单次读取最多 256 KiB。游标是原始字节偏移；UTF-8 边界/无效字节显示替换字符，不影响真实文件字节。
+
+`cancel_command(session_id)` 只控制本运行实例启动的任务，不接受外部 PID。默认同时最多两个活动任务，最多保留八个已终止任务附近的输出；最多记录 10,000 个 request_id。相同 request_id+相同参数返回原会话，不重复执行；参数不同拒绝；输出过期也不会自动重跑。去重记录不跨 MCP 重启，重启后重试修改型命令前必须检查实际结果。
+
+本服务退出/收到 EOF/SIGTERM 时清理自己持有的任务。POSIX 使用自有进程组，Windows 使用 Job Object。正常任务不允许留下常驻后代；主动脱离进程组等恶意行为不属于非沙箱环境的隔离保证。
+
+活动命令仅阻止**与其 cwd 相交工作区**的文件/Git 修改，不阻止读取或无关项目写入。错误返回 session_id/cwd/开始时间；不是 FileMCP 式任何命令占用都会锁住整个服务。此门控只在同一个 MCP runtime 内生效；其他 runtime、IDE 或外部命令不受它协调。
+
+## Git 安全模式与限制
+
+Git 不依赖 Shell 开关；只读有 status/log/diff，read_write 才有 init/add/commit。工具使用固定 argv，禁用 hooks、fsmonitor、外部 diff/textconv、签名、自动维护、隐式 lazy fetch；忽略全局/系统 Git 配置。路径按字面量处理，不能注入 flags/pathspec magic。
+
+当前要求仓库内真实 `.git` 目录；带 gitdir 文件的链接 worktree、submodule、外部 common dir/object alternates、符号链接或多硬链接 Git 元数据、包含外部 include/filter/HTTP 凭据路径等配置会明确拒绝。**不会为了兼容自动取消这些检查**。Git LFS filter 等配置需要在本机单独处理，本版不宣称完整支持所有 Git 布局。
+
+Git 文件操作仍受 root/deny/write_roots 检查；`git_add` 或提交含未授权、敏感、链接或超限文件会整次拒绝。`git_diff`/`git_status` 过滤拒绝路径。若仅授权某个仓库的部分子目录可写，仓库级索引/提交可能被范围检查拒绝；请明确授权需要维护 Git 索引的仓库。
+
+提交身份使用本机配置的 `git_user_name`/`git_user_email`，或仓库级 user.name/user.email，不凭空冒充用户，也不读取全局配置来执行扩展。
+
+### 推送
+
+本机配置示例（合并到已有配置，不要覆盖 Tunnel 设置）：
+
+```json
+{
+  "enable_git_push": true,
+  "git_push_remotes": ["https://github.com/OWNER/REPO.git"],
+  "git_credential_helper": "osxkeychain",
+  "git_user_name": "YOUR NAME",
+  "git_user_email": "YOUR EMAIL"
+}
+```
+
+credential helper 只能为空或 `osxkeychain` / `manager` / `libsecret` 这几种本机 native helper 名称，不能填 shell 命令。认证仍需用户在本机正常配置，密钥不放提示词。SSH 可使用本机已配置的密钥/agent，忽略用户 SSH 配置中的扩展命令，禁止交互式认证；不能登录时明确失败，不自动弹出或绕过。
+
+`git_push(repo_path="demo",remote="origin")` 只向 exact URL 白名单中的 HTTPS/SSH 远端推送**当前分支到同名分支**；没有 force、mirror、删除、任意 refspec 参数，不自动推标签或子模块。repo remote URL 必须唯一，无内嵌密码。与 FileMCP 的“上游分支”语义并非完全相同。
+
+推送发送 Git 提交历史，不仅仅发送当前文件工具能读取的文件。文件黑名单不能清除历史中已提交的秘密。开启推送前必须审查仓库及历史；Git 安全模式也不替代操作系统沙箱。当前自动测试验证真实本地 init/add/commit/status/diff/log，推送的网络发送为替身检查，**没有使用用户凭据向远端真实推送的验收**。
+
+## 代码检索
+
+完整安装现在包含 `pathspec`；pip 安装使用 `.[search]`。新检索工具使用路径策略及逐层 `.gitignore/.ignore`，默认跳过 build/dist；`include_ignored=true` 仅忽略搜索忽略规则，不能跳过安全 deny。core-only 环境遇到忽略文件而没有 pathspec 时会明确报依赖缺失，不静默扩大扫描。
+
+- `glob(pattern,path,head_limit,offset,include_ignored)`：路径查询，按修改时间排序，返回 next_offset/has_more。
+- `grep(pattern,path,glob,fixed_strings,case_sensitive,output_mode,context,head_limit,offset,include_ignored)`：模式为 files_with_matches/content/count。默认字面匹配；正则采用 Python re（**不是 ripgrep/Rust regex**），在超时可终止的独立进程中执行，避免阻塞主 MCP。当前按行搜索，没有跨行正则或 FileMCP 的 type 参数。
+- `search_code(queries,...)`：最多六个字面查询，完整标识符、声明行优先，返回得分依据。不是语言服务器或语义引用图；长行仅返回预览，结论前继续 read_file。
+- `repo_overview`：顶层条目、manifest、扩展名统计和实际扫描范围，不编造架构。
+- `workspace_context`：沿 root 到目标目录读取适用 AGENTS.md，以及目标 manifest 和 Git 状态。不会执行其中的命令/指令。
+
+每文件搜索文本最多 1 MiB，累计 50 MiB，遍历受本机数量与时间预算约束；正则执行另有八秒预算。搜索响应有截断原因和跳过数，不能将被截断的搜索当作完整扫描。分页不是跨并发修改的稳定快照。
+
+## 批量读取
+
+```json
+{"operations":[
+  {"tool":"read_file","arguments":{"path":"demo/src/main.py","start_line":1,"end_line":120}},
+  {"tool":"git_status","arguments":{"repo_path":"demo"}},
+  {"tool":"search_code","arguments":{"queries":["run"],"path":"demo/src"}}
+],"stop_on_error":false}
+```
+
+每批 1–16 项，返回 index/tool/ok/result，支持遇错停止。禁止写操作、Shell、嵌套 batch_read 或任意反射。全批工具名称与参数先验证，再开始读取。总响应预算 512 KiB，操作间检查时间预算；超限明确提供 next_index，提示当前读取是否已执行。图像/二进制块不打包进这个文本批量接口，继续使用各自原生工具。
+
+## 跨文件补丁
+
+```json
+{"changes":[
+  {"path":"demo/a.py","old_text":"return a-b","new_text":"return a+b","expected_sha256":"<a.py 的原始64位SHA256>"},
+  {"relative_path":"demo/b.py","old_text":"OLD_NAME","new_text":"NEW_NAME","expected_sha256":"<b.py 的原始64位SHA256>"}
+],"dry_run":true}
+```
+
+`path` 和 FileMCP 风格的 `relative_path` 二选一。每项必须有原文件哈希；同一文件的多项哈希都指整批操作前的原版本，文本替换按顺序执行。继续兼容旧的 `apply_patch(path,edits,expected_sha256,dry_run)`；两种形式不能混用。
+
+先确定序获取所有文件锁，读取全部原文，校验整批 SHA、唯一匹配、大小和权限，然后才开始写入。默认原文件/结果总预算均 32 MiB；每文件沿用 max_file_size。每文件覆盖仍有备份与读回验证。
+
+中途失败按逆序尝试恢复，只恢复仍等于本次写入结果的文件；外部新修改不会被强行覆盖。返回 PATCH_FAILED_ROLLED_BACK 或 PATCH_ROLLBACK_INCOMPLETE，并逐文件给出 restored/unchanged/external_change_not_overwritten/restore_failed。私有 transaction journal 记录阶段和哈希，不把源码写入普通日志。
+
+**这不是文件系统级多文件原子事务，也不是断电/崩溃自动回滚保证。** 跨文件读者可能观察到中间状态；外部非合作编辑器仍存在竞态。崩溃后的 journal/备份需用户在本机核查；本版没有自动崩溃恢复工具。

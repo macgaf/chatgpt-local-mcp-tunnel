@@ -1,3 +1,33 @@
+# v0.4.0 验证记录
+
+日期：2026-09-24。基线为 PR #1 提交 018a86d；本轮增加 Git、命令执行、代码检索、批量读取及跨文件补丁。
+
+## 本轮实际本地执行
+
+在隔离 Linux 环境、临时 HOME 和临时仓库中运行：
+
+| 分组 | 实际结果 |
+|---|---|
+| 原有 policy/protocol/service/media + 跨文件补丁 | 101 passed |
+| Git 与命令会话（不含下述完整工作流个案） | 33 passed |
+| 安装/凭据/Tunnel 管理回归 | 19 passed |
+| 搜索/批量与完整编程工作流 | 17 passed |
+| compileall 与真实 stdio self-test | 通过 |
+
+合计 **170 个测试通过**，分组运行避免开发工具单次执行时限；不是把被工具超时中止的完整测试进程计为成功。完整 pytest 由 GitHub CI 再验证。
+
+新增真实验证包括：本地 Git init/status/log/diff/add/commit；关闭 hooks/外部 diff；拒绝 filter/include/alternate/gitdir 及敏感暂存路径；Shell 创建文件、真实退出码、超时、取消、自有子进程/EOF 清理、输出环形缓冲与游标、去重、工作区相交门控；真实独立正则 worker 与实际超时；忽略文件和代码排序；跨文件预检、失败注入回滚、不覆盖外部修改。
+
+完整工作流个案：仓库中有错误的 add 函数 → workspace_context/search_code/batch_read → apply_patch 修复 → run_command 执行断言测试 → git_diff/add/commit；实际完成。
+
+**替身/边界：**Git push 的最终网络调用只检查固定 URL/refspec/权限构造，没有向真实远端发送用户项目。继承自 v0.3 的真实 Tunnel、系统 keystore、ChatGPT 图像消费、目标机安装验收仍未替代。命令不是 OS 沙箱，Git 安全模式不支持所有特殊仓库布局；跨文件补丁不是崩溃原子事务。
+
+GitHub CI 状态将在本轮提交后按实际结果补记；此处尚未把未执行结果计为通过。
+
+---
+
+## 历史 v0.3 报告
+
 # v0.3.0 测试报告
 
 执行日期：2026-09-24。本地执行位置：隔离 Linux 开发容器；另有三平台 GitHub Hosted Runner 验证，均不是用户的目标机器。

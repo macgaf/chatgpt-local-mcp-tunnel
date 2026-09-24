@@ -14,6 +14,9 @@ from .errors import Fault, normalize_error, redact
 from .media import text_content
 from .policy import Policy
 from .service import HomeService
+from .command_tools import COMMAND_TOOLS
+from .git_tools import GIT_READS, GIT_WRITES
+from .search_tools import BATCH_READS
 
 LEGACY = ('2025-03-26', '2025-06-18', '2025-11-25')
 MODERN = '2026-07-28'
@@ -24,7 +27,10 @@ INSTRUCTIONS = ('先调用 policy_info；按项目路径定位 AGENTS.md、SKILL
     '图片使用 read_image；ZIP 内图片使用 read_archive_member；PDF 图表必须 render_pdf_page。'
     '不要要求用户手工上传服务已能读取的文件；不要假称本机路径存在于你的沙箱。'
     '修改前读取 SHA-256，冲突时重新核查，不自动强制覆盖。检查所有截断和错误。'
-    '配置、权限和密钥只由本机 CLI 管理；没有 shell 工具。')
+    '先 workspace_context，再 search_code/grep 与 batch_read；修改后 git_diff 和运行测试。'
+    '长任务使用 start_command 并读到 terminal 且 has_more=false；退出码非零不是通过。'
+    '跨文件补丁 changes 必须带每个原文件哈希；异常时检查逐文件 rollback。'
+    '配置和密钥仅本机管理；Shell 默认关闭，开启后不是 OS 沙箱。')
 S = {'type': 'string', 'maxLength': 4096}
 TEXT = {'type': 'string', 'maxLength': 8*1024*1024}
 B = {'type': 'boolean'}
@@ -64,12 +70,53 @@ DESCRIPTIONS = {
     'write_file':'创建/覆盖 UTF-8 文件；已有文件必须带 expected_sha256，写前备份，写后校验。',
     'write_binary':'Base64 解码后写入原始字节；不执行文件。覆盖要求 expected_sha256。',
     'edit_file':'单文件唯一文本精确替换；要求原 SHA-256，可 dry_run。',
-    'apply_patch':'在一个文件内执行 1–64 个有序唯一文本替换；不是跨文件事务。',
+    'apply_patch':'执行 1–64 个跨文件精确文本替换（changes），也兼容旧单文件参数。先验证全批，确定序加锁，失败尽力回滚；不是崩溃原子事务。',
     'create_directory':'创建一个目录；父目录必须存在，不递归删除或执行命令。',
     'list_backups':'列出此授权文件的本机备份元数据，不暴露备份目录。',
     'restore_file':'从对应备份恢复文件；要求当前 SHA-256，恢复前仍备份现状。',
 }
-WRITES = {'write_file','write_binary','edit_file','apply_patch','create_directory','restore_file'}
+WRITES = {'write_file','write_binary','edit_file','apply_patch','create_directory','restore_file'} | GIT_WRITES | {'run_command','start_command','cancel_command'}
+DESCRIPTIONS.update({
+    'git_init':'在授权可写目录初始化普通 Git 仓库；禁用模板/hooks。',
+    'git_status':'获取受策略过滤的 Git 文件状态；不执行仓库 hook/filter。',
+    'git_log':'获取当前分支最近提交信息，不执行签名检查或外部程序。',
+    'git_diff':'查看工作区或暂存区的文本差异；敏感路径过滤，禁止外部 diff/textconv。',
+    'git_add':'暂存明确路径；整批范围校验，不执行 Git filters。',
+    'git_commit':'提交已暂存且有权修改的文件；需要本机/仓库 Git 身份，不执行 hooks。',
+    'git_push':'将当前分支推送到本机已批准的 HTTPS/SSH URL；不支持 force/mirror/delete。',
+    'start_command':'启动已明确启用的非沙箱 Shell 任务。request_id 去重；返回后继续读输出直到终止且 has_more=false。',
+    'run_command':'执行短 Shell 任务并返回真实退出状态；输出较多时用返回 session_id 继续读取。',
+    'read_command_output':'按字节游标读取有界任务输出；truncated 表示旧内容已被淘汰。',
+    'cancel_command':'只取消本 runtime 持有的会话及子进程；随后轮询直到终止。',
+    'glob':'按文件名 glob 查找并分页，按修改时间排序；遵循本机黑名单及 .gitignore/.ignore。',
+    'grep':'有界字面/正则搜索，可返回命中文件、内容及上下文、次数；正则在可超时子进程执行。',
+    'search_code':'1–6 个字面代码查询，标识符/声明行优先的启发式排序；不是语义置信度。',
+    'repo_overview':'项目顶层、manifest、扩展名统计及扫描覆盖范围；不是自动架构结论。',
+    'workspace_context':'任务入口：工作目录、沿途 AGENTS.md、项目 manifest、Git 状态；不执行文件内命令。',
+    'batch_read':'一次调用最多 16 个固定只读操作；全部参数先验证，禁止嵌套批量、写操作和 Shell。',
+})
+FIELDS.update({
+    'repo_path':S,'remote':S,'message':{'type':'string','minLength':1,'maxLength':16000},
+    'paths':{'type':['array','null'],'maxItems':128,'items':S},
+    'count':{'type':'integer','minimum':1,'maximum':50},'staged':B,
+    'command':{'type':'string','minLength':1,'maxLength':32000},'cwd':S,
+    'request_id':{'type':['string','null'],'maxLength':128},'session_id':S,
+    'timeout_seconds':{'type':'integer','minimum':1,'maximum':3600},'cursor':I,
+    'include_ignored':B,'head_limit':{'type':'integer','minimum':1,'maximum':1000},
+    'fixed_strings':B,'context':{'type':'integer','minimum':0,'maximum':10},
+    'output_mode':{'type':'string','enum':['files_with_matches','content','count']},
+    'queries':{'type':'array','minItems':1,'maxItems':6,'items':{'type':'string','minLength':1,'maxLength':500}},
+    'max_results_per_query':{'type':'integer','minimum':1,'maximum':20},
+    'changes':{'type':['array','null'],'minItems':1,'maxItems':64,'items':{
+        'type':'object','properties':{'path':S,'relative_path':S,'old_text':TEXT,'new_text':TEXT,
+                                    'expected_sha256':{'type':'string','minLength':64,'maxLength':64}},
+        'required':['old_text','new_text','expected_sha256'],'additionalProperties':False}},
+    'operations':{'type':'array','minItems':1,'maxItems':16,'items':{
+        'type':'object','properties':{'tool':{'type':'string','enum':sorted(BATCH_READS)},
+                                    'arguments':{'type':'object','additionalProperties':True}},
+        'required':['tool'],'additionalProperties':False}},
+    'stop_on_error':B,
+})
 
 
 def validate(value, schema, where='arguments'):
@@ -95,10 +142,11 @@ def validate(value, schema, where='arguments'):
             validate(x,schema['items'],where+'[]')
     if isinstance(value,dict):
         props = schema.get('properties',{})
-        if set(schema.get('required',[]))-value.keys() or value.keys()-props.keys():
+        if set(schema.get('required',[]))-value.keys() or (schema.get('additionalProperties',False) is False and value.keys()-props.keys()):
             raise ValueError(f'{where}: missing required or unknown fields')
         for k, v in value.items():
-            validate(v, props[k], where+'.'+k)
+            if k in props:
+                validate(v, props[k], where+'.'+k)
 
 
 class Protocol:
@@ -108,10 +156,18 @@ class Protocol:
         for name, description in DESCRIPTIONS.items():
             if name in WRITES and service.policy.mode != 'read_write':
                 continue
+            if name in COMMAND_TOOLS and not (service.policy.enable_commands and service.policy.mode == 'read_write'):
+                continue
+            if name == 'git_push' and not service.policy.enable_git_push:
+                continue
             sig = inspect.signature(getattr(service,name))
             props, required = {}, []
             for key,param in sig.parameters.items():
                 props[key] = dict(FIELDS[key])
+                if name == 'apply_patch' and key in ('path','edits'):
+                    props[key]['type'] = [props[key]['type'], 'null']
+                if name in ('read_command_output',) and key == 'limit':
+                    props[key] = {'type':'integer','minimum':1,'maximum':262144}
                 if name == 'diagnose' and key == 'path':
                     props[key] = {'type':['string','null'],'maxLength':4096}
                 if param.default is inspect.Parameter.empty:
@@ -121,7 +177,7 @@ class Protocol:
             self.specs[name] = {'name':name, 'description':description,
                 'inputSchema': {'type':'object','properties':props,'required':required,'additionalProperties':False},
                 'annotations': {'readOnlyHint':name not in WRITES, 'destructiveHint':name in WRITES,
-                                'idempotentHint':name not in WRITES, 'openWorldHint':False}}
+                                'idempotentHint':name not in WRITES or name == 'cancel_command', 'openWorldHint':name in COMMAND_TOOLS or name == 'git_push'}}
 
     def result(self, message):
         if not isinstance(message,dict) or message.get('jsonrpc') != '2.0' or not isinstance(message.get('method'),str):
@@ -205,23 +261,31 @@ def serve(config=None):
     import os
     for name in ('CONTROL_PLANE_API_KEY','OPENAI_API_KEY','OPENAI_ADMIN_KEY'):
         os.environ.pop(name,None)
+    import signal
+    def terminate(signum,frame):
+        raise SystemExit(128+signum)
+    if hasattr(signal,'SIGTERM'):
+        signal.signal(signal.SIGTERM,terminate)
     protocol = Protocol(HomeService(Policy.from_file(config)))
     source = sys.stdin.buffer
-    while True:
-        line = source.readline(MAX_MESSAGE+1)
-        if not line:
-            return
-        if len(line) > MAX_MESSAGE:
-            print(json.dumps(Protocol._error(None,-32600,'Message exceeds 12 MiB; closing transport')),flush=True)
-            return
-        try:
-            message = json.loads(line)
-        except (ValueError,UnicodeError):
-            output = Protocol._error(None,-32700,'Parse error')
-        else:
-            output = protocol.result(message)
-        if output is not None:
-            print(json.dumps(output,ensure_ascii=False),flush=True)
+    try:
+        while True:
+            line = source.readline(MAX_MESSAGE+1)
+            if not line:
+                return
+            if len(line) > MAX_MESSAGE:
+                print(json.dumps(Protocol._error(None,-32600,'Message exceeds 12 MiB; closing transport')),flush=True)
+                return
+            try:
+                message = json.loads(line)
+            except (ValueError,UnicodeError):
+                output = Protocol._error(None,-32700,'Parse error')
+            else:
+                output = protocol.result(message)
+            if output is not None:
+                print(json.dumps(output,ensure_ascii=False),flush=True)
+    finally:
+        protocol.service.close()
 
 
 def main():

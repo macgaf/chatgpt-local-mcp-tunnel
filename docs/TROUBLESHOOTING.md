@@ -39,9 +39,29 @@
 | Tunnel healthy，但 ChatGPT 看不到 | 未关联当前工作区/App 未启用 | 检查账号/工作区及聊天工具选择，不反复重装本机 |
 | visual_probe 返回了但看不到图 | 宿主未向模型提供 ImageContent | 确认具备视觉的模型和支持图片结果的客户端；不是改 Base64 字符串就能解决 |
 
+## v0.4 编程错误
+
+| 错误码 | 原因和动作 |
+|---|---|
+| COMMANDS_DISABLED / COMMAND_RISK_ACK_REQUIRED | 命令未授权或缺风险确认；只能在本机开启，不通过提示词提升 |
+| REQUEST_ID_CONFLICT / SESSION_EXPIRED | 重试键参数不一致或输出过期；不要重复执行未知结果的修改任务 |
+| WORKSPACE_COMMAND_ACTIVE | 相交目录有任务；查看返回 session_id/cwd，读完或取消自己的任务 |
+| COMMAND_CONCURRENCY_LIMIT | 活动任务达到配置上限；不擅自杀其他任务 |
+| PROCESS_ISOLATION_FAILED | Windows 无法分配 Job Object；停止命令，不假称可清理子进程 |
+| UNSAFE_GIT_CONFIG / UNSAFE_GIT_METADATA | 不安全扩展、链接或对象库；本机审核，不能关闭防护强行执行 |
+| UNSUPPORTED_GIT_LAYOUT | 当前要求真实 .git 目录；链接 worktree/submodule gitdir 未支持 |
+| GIT_PATH_DENIED / GIT_LOCKED | 文件权限/策略拒绝，或 Git 自己的锁；不自动删锁 |
+| GIT_PUSH_DISABLED / GIT_REMOTE_NOT_APPROVED | 开关或精确 URL 白名单不足；只在本机审核配置 |
+| GIT_TRANSPORT_DENIED / GIT_IDENTITY_MISSING | 非 HTTPS/SSH、含密码 URL 或缺提交身份；本机配置，不向聊天提供密码 |
+| SEARCH_IGNORE_DEPENDENCY_MISSING | 缺 pathspec；安装 search 组件，不静默无视忽略规则 |
+| SEARCH_TIMEOUT / INVALID_SEARCH_PATTERN | 正则无效或超时；缩小范围/改用字面搜索；主 MCP 不受阻塞 |
+| BATCH_TOOL_DENIED | batch_read 出现写操作、命令或递归批量；先修正整个请求 |
+| PATCH_BUDGET_EXCEEDED | 多文件原文/结果超过总量限制；拆分修改 |
+| PATCH_FAILED_ROLLED_BACK / PATCH_ROLLBACK_INCOMPLETE | 中途失败；检查逐文件 rollback 和备份，不覆盖外部新内容 |
+
 ## FileMCP 的“活动命令锁”与本项目的区别
 
-FileMCP 原作可能报 `Command session is active; finish or cancel it before file mutations or Git operations`：这通常是原作的活动命令会话门控，不等同于 OS 文件锁。本项目不提供任意 shell/命令会话，不复制这个全局门控；用按目标文件的 OS lease 避免无关文件被锁。
+FileMCP 原作可能报 `Command session is active; finish or cancel it before file mutations or Git operations`：这通常是原作的活动命令会话门控，不等同于 OS 文件锁。v0.4 提供显式开启的命令会话，但仅对相交 cwd 的修改门控；按目标文件的 OS lease 协调文件写入。不会因项目 A 的任务阻止无关项目 B 写入。
 
 `diagnose(path)` 只探测本服务的锁，未持有的旧元数据不算活锁；文件不删除，避免另一个进程在新 inode 上取得第二把锁。外部 FileMCP 实例和本工具不会共享应用内的锁；同时修改时仍需哈希冲突保护。
 
