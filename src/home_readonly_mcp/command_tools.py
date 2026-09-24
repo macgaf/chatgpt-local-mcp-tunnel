@@ -31,8 +31,9 @@ def powershell_command(command):
 
 
 class CommandManager:
-    def __init__(self, policy):
+    def __init__(self, policy, audit=None):
         self.policy = policy
+        self.audit = audit
         self.lock = threading.RLock()
         self.jobs = {}
         self.requests = {}
@@ -69,6 +70,8 @@ class CommandManager:
                 if sid not in self.jobs:
                     raise Fault('SESSION_EXPIRED','此请求的会话输出已过期。',sid,
                                 '不会重复执行原命令；核查磁盘结果后决定是否新建请求。')
+                if self.audit:
+                    self.audit.emit('commands','command_reused',request_id=request_id,session_id=sid)
                 return self.jobs[sid].snapshot()
             if len(self.requests)>=10000:
                 raise Fault('REQUEST_HISTORY_LIMIT','本次运行的请求记录已满。','最多保留 10000 个去重键。',
@@ -91,7 +94,10 @@ class CommandManager:
                 # Do not inherit repository-controlled/user-injected module search paths.
                 env['PSModulePath'] = str(Path(shell).resolve().parent / 'Modules')
             # Commands do not inherit runtime keys, Python injection vars or shell rc env.
-            job = ProcessJob(argv,p,env,timeout_seconds,self.policy.max_command_output_bytes)
+            def notify(event, level='INFO', **fields):
+                if self.audit:
+                    self.audit.emit('commands', event, level, request_id=request_id, **fields)
+            job = ProcessJob(argv,p,env,timeout_seconds,self.policy.max_command_output_bytes,on_event=notify)
             self.jobs[job.id] = job
             self.requests[request_id] = (fingerprint,job.id)
             result = job.snapshot()

@@ -15,12 +15,14 @@ from .command_tools import CommandManager, CommandMixin
 from .git_tools import GitTools, GitMixin
 from .search_tools import SearchMixin
 from .patches import apply_changes
+from .eventlog import EventLog
 
 
 class HomeService(SearchMixin, GitMixin, CommandMixin):
     def __init__(self, policy):
         self.policy = policy
-        self.commands = CommandManager(policy)
+        self.audit = EventLog(policy.config_path, state_dir=policy.state_dir)
+        self.commands = CommandManager(policy, audit=self.audit)
         self.git = GitTools(self)
 
     def close(self):

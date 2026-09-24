@@ -25,6 +25,7 @@ def main():
     sys.path.insert(0,str(source/'src'))
     from home_readonly_mcp import __version__
     from home_readonly_mcp.errors import normalize_error
+    from home_readonly_mcp.eventlog import EventLog, error_fields
     from home_readonly_mcp.onboarding import configure, load_settings, save_settings, child_environment
     from home_readonly_mcp.policy import locations
     from home_readonly_mcp.storage import private_dir, write_private
@@ -49,6 +50,9 @@ def main():
             'register_codex':args.register_codex,'install_tunnel_client':args.install_client,
             'secrets_in_args':False},ensure_ascii=False,indent=2))
         return 0
+    audit = EventLog(config)
+    stage = 'configuration'
+    audit.emit('install','install_started')
     try:
         # Validate desired configuration before installing anything.
         old = load_settings(config)
@@ -75,18 +79,26 @@ def main():
         runfile.write_text("import sys\nfrom pathlib import Path\nsys.path.insert(0, str(Path(__file__).resolve().parent/'src'))\n"
                            "from home_readonly_mcp.cli import main\nraise SystemExit(main())\n",encoding='utf-8')
         envdir = destination/'venv'
+        stage = 'venv'
+        audit.emit('install','install_stage',stage=stage)
         venv.EnvBuilder(with_pip=not args.core_only).create(envdir)
         python = envdir/('Scripts/python.exe' if os.name=='nt' else 'bin/python')
         if not args.core_only:
+            stage = 'dependencies'
+            audit.emit('install','install_stage',stage=stage)
             packages = ['pathspec>=0.12,<1','Pillow>=11,<13','pypdfium2>=4.30,<6','keyring>=25,<27']
             if args.heif:
                 packages.append('pillow-heif>=0.22,<2')
             proc = subprocess.run([str(python),'-m','pip','install',*packages],env=child_environment(),check=False)
             if proc.returncode:
                 raise RuntimeError('Optional dependency installation failed; check pip/DNS/proxy output. Re-run or use --core-only explicitly.')
+        stage = 'self_test'
+        audit.emit('install','install_stage',stage=stage)
         # Probe the staged release before switching the stable managed launcher.
         subprocess.run([str(python),'-I',str(runfile),'--config',str(config),'self-test'],
                        check=True,env=child_environment())
+        stage = 'launcher'
+        audit.emit('install','install_stage',stage=stage)
         stable = appdir/'launch.py'
         stable_content = ("# Managed by chatgpt-local-mcp-tunnel; contains no secret.\n"
             "import json, os, sys\nfrom pathlib import Path\n"
@@ -121,12 +133,17 @@ def main():
         if args.register_codex: steps.append(['codex-install'])
         if args.setup_tunnel: steps.extend([['tunnel','init'],['doctor','--with-tunnel']])
         for step in steps:
+            stage = '.'.join(step)
+            audit.emit('install','install_stage',stage=stage)
             subprocess.run([*base,*step],check=True)
+        audit.emit('install','install_finished',ok=True)
+        print(f'Logs: {audit.directory} (local-mcp logs show / logs follow)')
         print('Installation complete. Tunnel is NOT automatically left running. Start:')
         print(f'{wrapper} tunnel run')
         print('ChatGPT: enable Developer Mode, create a Tunnel app, choose this tunnel, then enable it in a new chat.')
         return 0
     except Exception as exc:
+        audit.emit('install','install_failed','ERROR',stage=stage,**error_fields(exc))
         print(json.dumps(normalize_error(exc).payload(),ensure_ascii=False,indent=2),file=sys.stderr)
         return 1
 

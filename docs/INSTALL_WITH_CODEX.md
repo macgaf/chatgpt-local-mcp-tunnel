@@ -45,3 +45,8 @@ ID 必须保存在受保护的本地配置/profile，key 按 keystore 策略保�
 ## 可选 Computer Use
 
 仅在本机助手确实有获授权的浏览器/Computer Use 时用于页面导航。会显示或复制真实 ID/key 的步骤交由本人完成，不截图、不转录、不输出到聊天。登录、验证码和系统权限确认也由本人完成。无界面工具时不要假称已代办。
+
+
+## 安装后的日志入口
+
+安装器会打印日志目录；无论成功还是失败，都可用实际启动器执行 `local-mcp logs path`、`logs show --component install` 和 `logs show --level ERROR`。安装前的 `--plan` 不建立日志；Python/脚本未能启动的错误仍看终端原始报错，不能假称已有持久记录。最后报告应包含实际日志位置和查看命令，不附 ID/key。详见 [日志说明](LOGGING.md)。

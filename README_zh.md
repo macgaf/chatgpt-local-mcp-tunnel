@@ -4,7 +4,7 @@
 
 版本：**v0.4.0** · 支持 macOS / Windows / Linux · 默认 HOME 只读
 
-[这是什么](#what) · [主要能力](#capabilities) · [配置网站](#platform) · [本机安装](#install) · [故障排查](#troubleshooting) · [Codex 激活与示例](#codex) · [ChatGPT 激活与示例](#chatgpt)
+[这是什么](#what) · [主要能力](#capabilities) · [配置网站](#platform) · [本机安装](#install) · [故障排查](#troubleshooting) · [Codex 激活与示例](#codex) · [ChatGPT 激活与示例](#chatgpt) · [日志](#logs)
 
 <a id="what"></a>
 ## 1. 这是什么？解决什么问题？
@@ -65,7 +65,7 @@ ChatGPT 聊天窗口 → OpenAI Secure MCP Tunnel → 本机 MCP → 你授权�
 | 权限诊断 | `policy_info` | 查询实际根目录、读写模式、规则和权限开关 | 读取 |
 | 权限诊断 | `diagnose` | 查询诊断信息，探测指定路径的本服务锁 | 读取 |
 
-配套提供：**三平台安装脚本、Codex 自动注册、系统密钥库、Tunnel 配置、分层诊断和脱敏报告**。这些是本机管理功能，不计入 38 个 MCP 工具。
+配套提供：**三平台安装脚本、Codex 自动注册、系统密钥库、Tunnel 配置、持久日志、分层诊断和脱敏报告**。这些是本机管理功能，不计入 38 个 MCP 工具。
 
 开始使用前记住三点：**命令执行和推送默认关闭**；已有文件覆盖需要原 SHA-256；图片必须经客户端实际视觉验收。Shell 开启后不是 OS 沙箱，文件黑名单不能限制任意命令访问其他目录／网络。跨文件补丁是失败后尽力恢复，不是多文件原子事务。`.blend`、视频、点云和 Office 的专用解析器尚未实现，二进制传输也不等于自动进入 ChatGPT 沙箱。详细参数和限制见 [编程工具说明](docs/CODING_TOOLS.md)及[非文本文件说明](docs/MEDIA_PIPELINE.md)。
 
@@ -307,6 +307,48 @@ codex mcp get chatgpt-local-mcp-tunnel --json
 ```
 
 确认读取和图片可见后，再授权具体修改；可沿用第 3.4 节的修复与测试提示词。**Codex 本地连接与 ChatGPT Tunnel 连接是两个独立验收项，但可以操作同一套授权项目文件。**
+
+<a id="logs"></a>
+### 3.6 如何访问日志
+
+服务默认把运行事件持久保存，退出终端后仍可查看。**先用下面的命令定位实际日志目录：**
+
+```bash
+local-mcp logs path
+local-mcp logs show --tail 100
+local-mcp logs show --level ERROR
+local-mcp logs follow --component tunnel
+local-mcp logs export --tail 500 --output ./local-mcp-logs.json
+```
+
+没有加入 PATH 时，macOS/Linux 把 `local-mcp` 换成 `~/.local/bin/local-mcp`；Windows 使用安装器输出的 `local-mcp.cmd` 绝对路径。`follow` 在独立终端使用，按 Ctrl+C 只停止查看，不停止服务。
+
+| 系统 | 默认日志目录 |
+|---|---|
+| macOS / Linux | `~/.local/state/chatgpt-local-mcp-tunnel/logs/`；设置 XDG_STATE_HOME 时跟随该设置 |
+| Windows | `%LOCALAPPDATA%\chatgpt-local-mcp-tunnel\state\logs\` |
+
+日志按 `mcp`（调用/服务）、`commands`（任务状态/退出码）、`tunnel`（连接事件类别）、`cli`（配置/诊断）、`install`（安装阶段）分类。可用 `--component` 筛选，用 `--request-id` 关联某次工具调用；普通文本和 `--json` 两种显示方式均支持。
+
+默认 **INFO、单文件 5 MiB、每类最多 5 个历史文件、14 天过期策略**；清理在下一次写入时发生，容量上限可能更早淘汰。需要调整：
+
+```bash
+local-mcp logs configure --level DEBUG
+local-mcp logs configure --level INFO --max-mib 5 --keep 5 --days 14
+```
+
+改变设置后重启长驻服务。日志只保留安全事件摘要，**不保存文件正文、命令内容、完整命令输出、图像、配置全文或 ID/key 正文**；Tunnel 日志也只保存识别出的事件类别，不是原始输出副本。导出重新过滤字段，不覆盖已有文件，但仍需审核后分享。日志写入故障会单独报告，不因此重复执行业务写入。
+
+**复制给本机 Codex：**
+
+```text
+请用你原有的本机终端工具定位 local-mcp，执行 logs path，并查看相关分类最近 200 条和 ERROR 日志。
+结合 doctor，按时间、process_id、request_id/session_id 找出失败阶段及原因。
+不要打印 ID/key 或配置全文，不要把缺失日志当作操作未执行而重试写入，不要删除未知锁文件。
+需要提供诊断材料时使用 logs export，先审核后分享；不依赖故障中的 MCP 来读其私有日志目录。
+```
+
+完整字段、轮转/保留规则、权限与排错方法见 [日志使用说明](docs/LOGGING.md)。`doctor --bundle` 仍仅导出诊断摘要，不自动附带日志。日志管理是本机 CLI 功能，MCP 工具数量不变。
 
 ## 4. 详细说明与验证记录
 

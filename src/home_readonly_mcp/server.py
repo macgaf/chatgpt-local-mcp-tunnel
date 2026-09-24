@@ -11,6 +11,7 @@ import time
 from urllib.parse import urlparse, unquote, parse_qs
 from . import __version__
 from .errors import Fault, normalize_error, redact
+from .eventlog import EventLog, error_fields
 from .media import text_content
 from .policy import Policy
 from .service import HomeService
@@ -218,8 +219,10 @@ class Protocol:
             elif method == 'tools/call':
                 name = params.get('name')
                 if name not in self.specs:
+                    self.service.audit.emit('mcp','tool_rejected','WARNING',request_id=ident,error_code='TOOL_UNAVAILABLE')
                     return self._error(ident,-32602,'Tool not available in this configuration')
                 started = time.monotonic()
+                self.service.audit.emit('mcp','tool_started','DEBUG',tool=name,request_id=ident)
                 try:
                     args = params.get('arguments',{})
                     validate(args,self.specs[name]['inputSchema'])
@@ -229,10 +232,12 @@ class Protocol:
                 except Exception as exc:
                     payload = normalize_error(exc).payload(request_id=str(ident))
                     result = {'content':[text_content(payload)],'structuredContent':payload,'isError':True}
-                print(json.dumps(redact({'event':'tool_call','tool':name,'ok':not result['isError'],
-                                  'request_id':str(ident),
-                                  'error_code':result.get('structuredContent',{}).get('error',{}).get('code'),
-                                  'duration_ms':int((time.monotonic()-started)*1000)})),file=sys.stderr,flush=True)
+                body = result.get('structuredContent', {})
+                succeeded = not result['isError'] and body.get('ok', True) is not False
+                details = error_fields(body.get('error', {})) if not succeeded else {}
+                self.service.audit.emit('mcp', 'tool_call', 'INFO' if succeeded else 'ERROR',
+                                        tool=name, ok=succeeded, request_id=ident,
+                                        duration_ms=int((time.monotonic()-started)*1000), **details)
             elif method in ('resources/list','resources/templates/list'):
                 result = {'resources':[]} if method=='resources/list' else {'resourceTemplates':[]}
             elif method == 'resources/read':
@@ -240,6 +245,7 @@ class Protocol:
                 binary = self.service.read_resource(uri)
                 resource = binary['content'][1]['resource']
                 result = {'contents':[resource]}
+                self.service.audit.emit('mcp','resource_read',ok=True,request_id=ident)
             else:
                 return self._error(ident,-32601,'Method not found')
             if modern:
@@ -247,6 +253,7 @@ class Protocol:
             return {'jsonrpc':'2.0','id':ident,'result':result}
         except Exception as exc:
             err = normalize_error(exc).payload()['error']
+            self.service.audit.emit('mcp','protocol_error','ERROR',request_id=ident,**error_fields(exc))
             return {'jsonrpc':'2.0','id':ident,'error':{'code':-32602,'message':err['message'],'data':err}}
 
     @staticmethod
@@ -266,7 +273,17 @@ def serve(config=None):
         raise SystemExit(128+signum)
     if hasattr(signal,'SIGTERM'):
         signal.signal(signal.SIGTERM,terminate)
-    protocol = Protocol(HomeService(Policy.from_file(config)))
+    audit = EventLog(config)
+    audit.emit('mcp','server_starting')
+    try:
+        protocol = Protocol(HomeService(Policy.from_file(config)))
+    except Exception as exc:
+        audit.emit('mcp','server_start_failed','ERROR',**error_fields(exc))
+        raise
+    audit = protocol.service.audit
+    audit.emit('mcp','server_started',mode=protocol.service.policy.mode,tool_count=len(protocol.specs),
+               enable_commands=protocol.service.policy.enable_commands,
+               enable_git_push=protocol.service.policy.enable_git_push)
     source = sys.stdin.buffer
     try:
         while True:
@@ -274,11 +291,13 @@ def serve(config=None):
             if not line:
                 return
             if len(line) > MAX_MESSAGE:
+                audit.emit('mcp','protocol_error','ERROR',error_code='MESSAGE_TOO_LARGE')
                 print(json.dumps(Protocol._error(None,-32600,'Message exceeds 12 MiB; closing transport')),flush=True)
                 return
             try:
                 message = json.loads(line)
             except (ValueError,UnicodeError):
+                audit.emit('mcp','protocol_error','WARNING',error_code='JSON_PARSE_ERROR')
                 output = Protocol._error(None,-32700,'Parse error')
             else:
                 output = protocol.result(message)
@@ -286,6 +305,7 @@ def serve(config=None):
                 print(json.dumps(output,ensure_ascii=False),flush=True)
     finally:
         protocol.service.close()
+        audit.emit('mcp','server_stopped')
 
 
 def main():

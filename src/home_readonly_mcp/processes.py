@@ -11,8 +11,9 @@ from .errors import Fault, redact
 
 
 class ProcessJob:
-    def __init__(self, argv, cwd, env, timeout, output_limit=1048576):
+    def __init__(self, argv, cwd, env, timeout, output_limit=1048576, on_event=None):
         self.id = uuid.uuid4().hex
+        self.on_event = on_event
         self.cwd = str(cwd)
         self.started_at = time.time()
         self.timeout = timeout
@@ -46,8 +47,20 @@ class ProcessJob:
                             'AssignProcessToJobObject 失败。', '检查 Windows Job/安全软件限制；未继续运行命令。')
         self.reader = threading.Thread(target=self._read, daemon=True)
         self.monitor = threading.Thread(target=self._monitor, daemon=True)
+        self._notify("command_started")
         self.reader.start()
         self.monitor.start()
+
+    def _notify(self, event, level='INFO'):
+        if self.on_event:
+            try:
+                self.on_event(event, level, session_id=self.id, child_pid=self.proc.pid,
+                              state=self.state, exit_code=self.exit_code, timeout_seconds=self.timeout,
+                              bytes=self.last, truncated=self.first > 0,
+                              duration_ms=int((time.time()-self.started_at)*1000))
+            except Exception:
+                # Log sink errors must not turn a completed job into a retryable operation.
+                pass
 
     def _read(self):
         try:
@@ -116,11 +129,14 @@ class ProcessJob:
                 self._windows_job.close()
             with self.lock:
                 self.state = self.stop_reason or ('cleanup_failed' if self.cleanup_error else 'exited')
+            self._notify("command_finished", "INFO" if self.state == "exited" and self.exit_code == 0 else "ERROR")
             self.done.set()
 
     def cancel(self):
         with self.lock:
             if not self.done.is_set():
+                if not self.stop_requested.is_set():
+                    self._notify('command_cancel_requested', 'WARNING')
                 self.stop_reason = self.stop_reason or 'cancelled'
                 self.state = 'stopping'
                 self.stop_requested.set()

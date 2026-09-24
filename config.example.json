@@ -18,5 +18,12 @@
   "git_push_remotes": [],
   "git_credential_helper": "",
   "git_user_name": "",
-  "git_user_email": ""
+  "git_user_email": "",
+  "logging": {
+    "enabled": true,
+    "level": "INFO",
+    "max_bytes": 5242880,
+    "backup_count": 5,
+    "retention_days": 14
+  }
 }

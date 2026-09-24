@@ -76,3 +76,12 @@ FileMCP 原作可能报 `Command session is active; finish or cancel it before f
 ## 本机交互配置
 
 目录默认候选为 ~/，模式由用户选只读或读写，不把示例目录/模式当成授权。Tunnel ID 在 `local-mcp tunnel configure` 中隐藏录入，key 在 `local-mcp key set` 中隐藏录入；不可发到聊天或命令参数。`INTERACTIVE_SECRET_REQUIRED` 表示没有本机 TTY，`HIDDEN_INPUT_UNAVAILABLE` 表示不能关闭回显，`INTERACTIVE_INPUT_CANCELLED` 表示输入已结束。遇到这些错误换用本人独立终端，不 echo/管道传值，不用工具参数中转。ID格式错误不会显示实际输入值；已有正确ID可回车保留。原始配置与第三方日志仍可能含真实ID，不公开或整份输出。
+
+
+## 访问持久日志
+
+先运行 `local-mcp logs path`，再用 `logs show --level ERROR`、`logs show --component mcp --tail 200` 查看；独立终端用 `logs follow --component tunnel` 跟踪。`logs export --output ./local-mcp-logs.json` 导出筛选后的事件，不覆盖已有文件。详见 [日志说明](LOGGING.md)。
+
+`LOG_CONFIG_INVALID`：logging 配置无效，回退默认日志设置记录启动故障；请在本机修正配置。`LOG_WRITE_FAILED`：可能是磁盘满、权限不足、锁超时或不安全日志路径；stderr 会单独告警，doctor 的 logging 检查会显示失败。**业务操作可能已经完成，不能因为日志缺失直接重试写入。**
+
+日志关闭只停止后续记录，不删除既有记录。DEBUG 也不会持久保存命令/文件正文或凭据。不要为了读取日志解除私有状态目录的 MCP 保护；使用 Codex 原有终端工具。

@@ -22,6 +22,7 @@ from .errors import Fault, redact
 from .policy import APP, Policy, locations
 from .storage import private_dir, Lease, write_private
 from .media import safe_member
+from .eventlog import EventLog, LogSettings, error_fields
 
 
 def load_settings(path):
@@ -31,6 +32,7 @@ def load_settings(path):
 
 def save_settings(path, data):
     p = Path(path).expanduser()
+    LogSettings.parse(data.get('logging'))
     private_dir(p.parent)
     Policy(**{k:v for k,v in data.items() if k in Policy.__dataclass_fields__ and
               k not in ('config_path','protected_paths','state_dir')}, config_path=p)
@@ -339,12 +341,15 @@ def tunnel_doctor(config_path):
 
 def tunnel_run(config_path):
     settings,binary,key,_,profile,env = tunnel_context(config_path)
+    audit = EventLog(config_path)
+    audit.emit('tunnel','tunnel_starting')
     state = private_dir(locations()[2]/'tunnel')
     argv = [binary,'run','--profile',profile,'--health.listen-addr','127.0.0.1:0',
             '--health.url-file',str(state/'health-url')]
     with Lease(locations()[2],settings['tunnel_id'],'tunnel_run'):
         kwargs = {'start_new_session':True} if os.name!='nt' else {'creationflags':subprocess.CREATE_NEW_PROCESS_GROUP}
         proc = subprocess.Popen(argv,env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,**kwargs)
+        audit.emit('tunnel','tunnel_process_started',child_pid=proc.pid)
         try:
             # Whole bounded lines are redacted before printing; overlong lines are dropped.
             while True:
@@ -354,9 +359,12 @@ def tunnel_run(config_path):
                 if len(line)>65536 and not line.endswith(b'\n'):
                     while line and not line.endswith(b'\n'):
                         line = proc.stdout.readline(65537)
+                    audit.emit('tunnel','tunnel_output_dropped','WARNING',error_code='LOG_LINE_TOO_LONG')
                     print('[dropped overlong tunnel log line]',flush=True)
                 else:
-                    print(redact(line.decode('utf-8','replace'),(key,)),end='',flush=True)
+                    text = redact(line.decode('utf-8','replace'),(key,))
+                    record_tunnel_event(audit, text)
+                    print(text,end='',flush=True)
             status = proc.wait()
             if status:
                 raise Fault('TUNNEL_EXITED','Tunnel 进程异常退出。','见上方脱敏日志。',
@@ -364,3 +372,24 @@ def tunnel_run(config_path):
         finally:
             stop_owned_process(proc)
             proc.stdout.close()
+            audit.emit('tunnel','tunnel_process_stopped','INFO' if proc.returncode == 0 else 'WARNING',exit_code=proc.returncode)
+
+
+def record_tunnel_event(audit, text):
+    """Persist known event categories, NEVER raw third-party logs or URLs."""
+    lower = text.lower()
+    for tokens, code in ((('401','unauthorized'), 'TUNNEL_AUTHENTICATION_FAILED'),
+                         (('403','forbidden'), 'TUNNEL_PERMISSION_DENIED'),
+                         (('certificate','tls error'), 'TLS_FAILURE'),
+                         (('dns','failed to resolve'), 'DNS_FAILURE')):
+        if any(token in lower for token in tokens):
+            audit.emit('tunnel','tunnel_reported_error','ERROR',error_code=code)
+            return
+    for token, state in (('reconnect','reconnecting'), ('disconnected','disconnected'),
+                         ('healthy','healthy_reported'), ('ready','ready_reported'),
+                         ('connected','connected_reported'), ('error','error_reported')):
+        if token in lower:
+            audit.emit('tunnel','tunnel_reported_status','WARNING' if state in ('disconnected','error_reported') else 'INFO',
+                       reported_status=state)
+            return
+    audit.emit('tunnel','tunnel_output_received','DEBUG',bytes=len(text.encode('utf-8')))
