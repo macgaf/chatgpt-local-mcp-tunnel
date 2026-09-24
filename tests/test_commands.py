@@ -155,3 +155,26 @@ def test_stdio_shutdown_cleans_owned_jobs(space):
     assert not json.loads(proc.stdout)['result']['isError']
     time.sleep(3.3)
     assert not (root/'after-eof.txt').exists()
+
+
+@pytest.mark.parametrize('exit_code',[0,3,19])
+def test_native_exit_code_preserved(space,exit_code):
+    p,svc=space[2:];p.enable_commands=True
+    result=svc.run_command(command(f'raise SystemExit({exit_code})'))
+    assert result['completed'] and result['exit_code']==exit_code
+    assert result['succeeded']==(exit_code==0)
+
+
+@pytest.mark.skipif(os.name!='nt',reason='PowerShell exit semantics require a real Windows shell')
+@pytest.mark.parametrize('script,expected',[
+    ("Write-Output 'OK'",0),
+    ("Write-Error 'expected nonterminating fixture error'",1),
+    ("throw 'expected terminating fixture error'",1),
+    ("exit 23",23),
+    (command('raise SystemExit(7)')+"; Write-Output 'recovered'",0),
+])
+def test_powershell_status_semantics(space,script,expected):
+    p,svc=space[2:];p.enable_commands=True
+    result=svc.run_command(script)
+    assert result['completed'] and result['exit_code']==expected
+    assert result['succeeded']==(expected==0)

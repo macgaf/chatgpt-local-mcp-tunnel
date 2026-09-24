@@ -14,6 +14,22 @@ from .processes import ProcessJob
 COMMAND_TOOLS = {'run_command','start_command','read_command_output','cancel_command'}
 
 
+def powershell_command(command):
+    """Preserve a final native exit code instead of PowerShell -Command's 0/1.
+
+    Capture $? before doing anything else. A successful last PowerShell command
+    clears an earlier native failure, like ordinary shell last-command semantics.
+    Explicit user `exit N` still exits before the appended status handler.
+    """
+    return ("$global:LASTEXITCODE = 0\n" + command +
+            "\n$local_mcp_final_success = $?\n"
+            "if (-not $local_mcp_final_success) {\n"
+            "  if ($null -ne $LASTEXITCODE -and $LASTEXITCODE -ne 0) { exit $LASTEXITCODE }\n"
+            "  exit 1\n"
+            "}\n"
+            "exit 0\n")
+
+
 class CommandManager:
     def __init__(self, policy):
         self.policy = policy
@@ -68,7 +84,7 @@ class CommandManager:
             if not shell:
                 raise Fault('SHELL_NOT_FOUND','找不到受支持的系统 shell。','Windows 需要 PowerShell。',
                             '安装或修复系统 shell；不使用任意下载的执行程序。')
-            argv = [shell,'-NoProfile','-NonInteractive','-Command',command] if os.name=='nt' else [shell,'-c',command]
+            argv = [shell,'-NoProfile','-NonInteractive','-Command',powershell_command(command)] if os.name=='nt' else [shell,'-c',command]
             env = child_environment()
             # Commands do not inherit runtime keys, Python injection vars or shell rc env.
             job = ProcessJob(argv,p,env,timeout_seconds,self.policy.max_command_output_bytes)
