@@ -65,7 +65,7 @@ def test_actual_rw_stdio(space):
         {'jsonrpc':'2.0','id':3,'method':'tools/call','params':{'name':'read_file','arguments':{'path':'new.txt'}}}]
     env=dict(os.environ,PYTHONPATH=str(Path(__file__).resolve().parents[1]/'src'))
     run=subprocess.run([sys.executable,'-m','home_readonly_mcp.cli','--config',str(cfg),'server'],
-        input='\n'.join(json.dumps(x) for x in requests)+'\n',capture_output=True,text=True,env=env,timeout=10)
+        input='\n'.join(json.dumps(x) for x in requests)+'\n',capture_output=True,text=True,encoding='utf-8',env=env,timeout=10)
     assert run.returncode==0,run.stderr
     lines=[json.loads(x) for x in run.stdout.splitlines()]
     assert len(lines)==3 and all('result' in x for x in lines)
@@ -89,3 +89,15 @@ def test_invalid_jsonrpc(space):
         assert p.result(message)['error']['code']==-32600
     assert p.result({'jsonrpc':'2.0','method':'notifications/initialized'}) is None
     assert call(p,'not_a_method')['error']['code']==-32601
+
+
+def test_selftest_uses_explicit_utf8_pipe_decoding(monkeypatch):
+    from home_readonly_mcp import cli
+    original=cli.subprocess.run
+    invoked=[]
+    def checked_run(*args,**kwargs):
+        assert kwargs.get('encoding')=='utf-8'
+        invoked.append(True)
+        return original(*args,**kwargs)
+    monkeypatch.setattr(cli.subprocess,'run',checked_run)
+    assert cli.self_test()['ok'] and invoked

@@ -63,6 +63,10 @@ def load_key(settings, backend=None):
             backend = backend or native_backend()
             value = backend.get_password(APP, key_account(settings))
         elif source == 'systemd':
+            if not sys.platform.startswith('linux'):
+                raise Fault('UNSUPPORTED_CREDENTIAL_SOURCE', 'systemd 凭据只适用于 Linux。',
+                            f'当前平台为 {sys.platform}；不能用 POSIX 权限位验证 Windows 凭据。',
+                            'macOS/Windows 使用 key_source=keyring 对应的系统凭据库。')
             folder = os.environ.get('CREDENTIALS_DIRECTORY')
             if not folder:
                 raise Fault('SYSTEMD_CREDENTIAL_MISSING', '没有 systemd 凭据目录。',

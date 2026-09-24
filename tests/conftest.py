@@ -17,5 +17,5 @@ def space(tmp_path, monkeypatch):
     root.mkdir()
     policy = Policy(root=root,mode='read_write')
     service = HomeService(policy)
-    (root/'a.txt').write_text('hello\n世界\n',encoding='utf-8')
+    (root/'a.txt').write_bytes('hello\n世界\n'.encode('utf-8'))
     return home,root,policy,service

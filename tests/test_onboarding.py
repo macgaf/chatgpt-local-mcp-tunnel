@@ -43,6 +43,7 @@ def test_noninteractive_key_refused(monkeypatch):
     assert got.value.code=='INTERACTIVE_SECRET_REQUIRED'
 
 
+@pytest.mark.skipif(not sys.platform.startswith('linux'),reason='systemd credentials are a Linux-only source')
 def test_headless_systemd_credentials(space,monkeypatch):
     d=space[0]/'runtime-creds';d.mkdir();p=d/'runtime-api-key'
     p.write_text(KEY);p.chmod(0o600)
@@ -163,14 +164,21 @@ def test_tunnel_profile_protects_key_and_idempotent(space,monkeypatch):
 def test_real_offline_install_and_reinstall(space):
     repo=Path(__file__).resolve().parents[1]
     argv=[sys.executable,str(repo/'bootstrap.py'),'--core-only','--root',str(space[1]),'--mode','read_write']
-    one=subprocess.run(argv,text=True,capture_output=True,timeout=30)
+    one=subprocess.run(argv,text=True,encoding='utf-8',capture_output=True,timeout=30)
     assert one.returncode==0,one.stdout+one.stderr
     cfg=locations()[0]/'config.json'
     before=onboarding.launch_argv(cfg)
     wrapper=space[0]/'.local/bin/local-mcp'
-    run=subprocess.run([str(wrapper),'self-test'],capture_output=True,text=True,timeout=15)
+    run=subprocess.run([str(wrapper),'self-test'],capture_output=True,text=True,encoding='utf-8',timeout=15)
     assert run.returncode==0,run.stderr
-    two=subprocess.run(argv,text=True,capture_output=True,timeout=30)
+    two=subprocess.run(argv,text=True,encoding='utf-8',capture_output=True,timeout=30)
     assert two.returncode==0,two.stdout+two.stderr
     assert onboarding.launch_argv(cfg)==before
     assert onboarding.load_settings(cfg)['mode']=='read_write'
+
+
+@pytest.mark.parametrize('platform_name',['darwin','win32'])
+def test_systemd_source_rejected_on_other_platforms(monkeypatch,platform_name):
+    monkeypatch.setattr(credentials.sys,'platform',platform_name)
+    with pytest.raises(Fault) as got:credentials.load_key({'key_source':'systemd'})
+    assert got.value.code=='UNSUPPORTED_CREDENTIAL_SOURCE'

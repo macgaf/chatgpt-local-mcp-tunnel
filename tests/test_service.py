@@ -120,7 +120,7 @@ with Lease(sys.argv[1],sys.argv[2],'test_writer'):
 """
     env=dict(os.environ,PYTHONPATH=str(Path(__file__).resolve().parents[1]/'src'))
     proc=subprocess.Popen([sys.executable,'-c',code,str(p.state_dir),str(root/'a.txt')],
-        stdout=subprocess.PIPE,text=True,env=env)
+        stdout=subprocess.PIPE,text=True,encoding='utf-8',env=env)
     try:
         assert proc.stdout.readline().strip()=='locked'
         with pytest.raises(Fault) as got:svc.write_file('a.txt','blocked')
@@ -147,3 +147,17 @@ def test_os_errors_have_remediation(number,code):
 def test_redaction():
     key='sk-test-secret-1234567890'
     assert key not in json.dumps(redact({'api_key':key,'other':'error '+key,'authorization':'Bearer abcd'}))
+
+
+def test_crlf_read_edit_and_restore_preserve_bytes(space):
+    original='hello\r\n世界\r\n'.encode('utf-8')
+    root,svc=space[1],space[3]
+    (root/'crlf.txt').write_bytes(original)
+    before=svc.read_file('crlf.txt')
+    assert before['content']=='hello\r\n世界\r\n'
+    assert before['sha256']==digest(original)
+    assert svc.read_file('crlf.txt',2,2)['content']=='世界\r\n'
+    result=svc.edit_file('crlf.txt','hello','HELLO',before['sha256'])
+    assert (root/'crlf.txt').read_bytes()=='HELLO\r\n世界\r\n'.encode('utf-8')
+    svc.restore_file('crlf.txt',result['backup_id'],result['sha256'])
+    assert (root/'crlf.txt').read_bytes()==original

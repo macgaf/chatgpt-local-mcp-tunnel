@@ -44,7 +44,7 @@ def self_test():
         ]
         try:
             proc = subprocess.run([sys.executable,'-I','-c',code],
-                input=''.join(json.dumps(m)+'\n' for m in messages),capture_output=True,text=True,
+                input=''.join(json.dumps(m)+'\n' for m in messages),capture_output=True,text=True,encoding='utf-8',
                 env=child_environment(),timeout=20)
             output = [json.loads(line) for line in proc.stdout.splitlines()]
             by_id = {m['id']:m for m in output}
