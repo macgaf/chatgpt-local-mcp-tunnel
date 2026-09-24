@@ -2,6 +2,9 @@
 
 ## 0.4.0 — 2026-09-24
 
+- 共178项用例，三平台 pytest 与真实 stdio 自检通过；详见 TEST_REPORT.md。
+- 根据真实 Windows CI 保留原生命令退出码，显式设置内置 PowerShell 模块路径，并区分正常失败与超时。
+
 - 新增七个固定 Git 接口；安全参数、元数据检查和路径过滤，push 独立授权及远端白名单。
 - 新增默认关闭的命令执行、去重请求、长任务/输出游标/取消/超时与自有子进程清理；仅相交工作区门控，不使用全局活动命令锁。
 - 新增 glob/grep/search_code/repo_overview/workspace_context；Python re 在超时隔离进程中运行，pathspec 遵循忽略规则。

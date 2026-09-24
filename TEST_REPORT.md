@@ -1,94 +1,55 @@
-# v0.4.0 验证记录
+# v0.4.0 最终验证记录
 
-日期：2026-09-24。基线为 PR #1 提交 018a86d；本轮增加 Git、命令执行、代码检索、批量读取及跨文件补丁。
+日期：2026-09-24。代码验证提交：`36fda0964bdd2229c3c961ed0dd09a46c989e9b8`；代码及测试树：`43bae7169acf8f7a6e65baed5df77c91b8486652`。本报告与说明文件的后续提交不修改这份已验证运行时代码。
 
-## 本轮实际本地执行
+## 最终结果
 
-在隔离 Linux 环境、临时 HOME 和临时仓库中运行：
+共有 **178 个用例**。不同操作系统按适用性跳过专用用例，不将 skip 算作通过。测试在隔离 Linux 开发容器和 GitHub Hosted Runner 上执行，不是用户目标机器。
 
-| 分组 | 实际结果 |
-|---|---|
-| 原有 policy/protocol/service/media + 跨文件补丁 | 101 passed |
-| Git 与命令会话（不含下述完整工作流个案） | 33 passed |
-| 安装/凭据/Tunnel 管理回归 | 19 passed |
-| 搜索/批量与完整编程工作流 | 17 passed |
-| compileall 与真实 stdio self-test | 通过 |
+[最终三平台 CI：run 35982777237](https://github.com/macgaf/chatgpt-local-mcp-tunnel/actions/runs/35982777237)
 
-合计 **170 个测试通过**，分组运行避免开发工具单次执行时限；不是把被工具超时中止的完整测试进程计为成功。完整 pytest 由 GitHub CI 再验证。
-
-新增真实验证包括：本地 Git init/status/log/diff/add/commit；关闭 hooks/外部 diff；拒绝 filter/include/alternate/gitdir 及敏感暂存路径；Shell 创建文件、真实退出码、超时、取消、自有子进程/EOF 清理、输出环形缓冲与游标、去重、工作区相交门控；真实独立正则 worker 与实际超时；忽略文件和代码排序；跨文件预检、失败注入回滚、不覆盖外部修改。
-
-完整工作流个案：仓库中有错误的 add 函数 → workspace_context/search_code/batch_read → apply_patch 修复 → run_command 执行断言测试 → git_diff/add/commit；实际完成。
-
-**替身/边界：**Git push 的最终网络调用只检查固定 URL/refspec/权限构造，没有向真实远端发送用户项目。继承自 v0.3 的真实 Tunnel、系统 keystore、ChatGPT 图像消费、目标机安装验收仍未替代。命令不是 OS 沙箱，Git 安全模式不支持所有特殊仓库布局；跨文件补丁不是崩溃原子事务。
-
-GitHub CI 状态将在本轮提交后按实际结果补记；此处尚未把未执行结果计为通过。
-
----
-
-## 历史 v0.3 报告
-
-# v0.3.0 测试报告
-
-执行日期：2026-09-24。本地执行位置：隔离 Linux 开发容器；另有三平台 GitHub Hosted Runner 验证，均不是用户的目标机器。
-
-## 实际结果
-
-```text
-python -m compileall -q src bootstrap.py        PASS
-bash -n install.sh setup-tunnel.sh             PASS
-PYTHONPATH=src pytest -q                       112 passed in 16.35s
-python -m home_readonly_mcp.cli self-test       PASS (real subprocess)
-```
-
-环境：Linux x86_64，Python 3.13.5，pytest 9.0.2，Pillow 12.3.0，pypdfium2 5.8.0。
-
-| 测试文件 | 用例数 | 范围 |
-|---|---:|---|
-| test_policy.py | 41 | HOME/项目范围、黑白名单、精确例外、凭据保护、符号链接/硬链接、读写开关 |
-| test_service.py | 24 | 创建/改写、SHA 冲突、dry-run、不部分写入、备份/恢复、跨进程锁、OS 错误原因 |
-| test_media.py | 15 | 图片真实 ImageContent、EXIF/crop、PDF 文本与渲染、ZIP 过滤/防炸弹、二进制资源分块和版本冲突 |
-| test_protocol.py | 13 | 真实 legacy/modern stdio、真实子进程写文件、只读隐藏写工具、参数校验、资源读取 |
-| test_onboarding.py | 19 | 凭据接口、防明文降级、超时/脱敏、发行包校验、Codex 幂等注册、Tunnel profile、两次真实离线安装 |
-
-PDF 测试使用程序生成的单页样本；已渲染并目视核查标题及矩形图形，而非只检查提取文字。测试没有调用 OCR，也没有读取用户真实项目或凭据。
-
-## 哪些是真实运行，哪些是模拟
-
-**真实运行：**核心文件系统操作、POSIX 路径保护、跨进程 OS 锁、读写 SHA 校验、备份恢复、图片解码、PDFium 渲染、ZIP 读取、二进制内容还原、stdio 子进程、core-only venv 安装及重复安装。安装在临时 HOME 中，不是修改用户机器。
-
-**使用替身验证：**系统 keystore 的存取接口、Codex CLI 注册（本地 fake executable）、Tunnel init 的 profile 行为、官方发行包校验（人工构造 ZIP+checksum）。systemd 凭据读取使用模拟私有文件，不是实际 systemd 加密服务。
-
-**没有完成的外部验收：**用户目标 Mac/Windows 的部署和 OS 凭据库、Linux 原生 Secret Service/systemd daemon、真实 Codex CLI、官方 Tunnel 发行包联网安装与认证、ChatGPT 的 App 发现/图片消费、HEIC 实际解码、完整 MCP 官方 conformance suite。
-
-本容器不能通过包下载/外部 shell 网络完成上述集成。仓库含三平台 CI 配置。首轮远程执行中 macOS、Ubuntu 的测试和 stdio self-test 通过；Windows 的真实执行揭示了 UTF-8 管道解码、测试换行及 Linux-only systemd 测试范围问题。已按日志修复并新增回归测试；修复提交 `4d9982d5d172680097c35edf11ab5f32c69942bb` 的三平台远程测试与 stdio self-test 已全部通过。README 的目标机验收步骤和 visual_probe 用于继续核验这些层级。
-
-## 不应扩大解释的结论
-
-112 项通过不代表没有漏洞；本地 path policy 不等于对同一 OS 用户恶意进程的完整隔离。只读模式没有注册写工具且方法再次校验，但平台是否允许调用、是否把 ImageContent 送到模型仍由宿主决定。
-
-写入是单文件原子替换；对不遵守本服务锁的外部编辑器，没有绝对 compare-and-swap 保证。备份包含原文件真实内容，不能当公开诊断附件。
-
-## 首轮跨平台 CI 与修复记录
-
-首轮执行：[GitHub Actions run 35954821341](https://github.com/macgaf/chatgpt-local-mcp-tunnel/actions/runs/35954821341)。macOS、Ubuntu 通过；Windows 为 99 passed / 6 failed / 3 skipped。失败没有被隐藏或用降低权限检查解决：
-
-- MCP 管道明确使用 UTF-8 解码，不依赖 Windows 默认 cp1252。
-- 文本样本用固定 LF 字节；新增实际 CRLF 读取、精确编辑及备份恢复保持原始字节的测试。
-- systemd 凭据来源明确仅限 Linux；非 Linux 明确拒绝，并按平台限定对应测试。
-
-修复后本地 Linux 共 112 项通过。Mac/Windows 的跳过项目为平台专用测试，不代表真实原生密钥库或云端认证已测试。
-
-## 修复后的远程 CI 实际结果
-
-验证提交：`4d9982d5d172680097c35edf11ab5f32c69942bb`。执行：[run 35955350897](https://github.com/macgaf/chatgpt-local-mcp-tunnel/actions/runs/35955350897)。
-
-| GitHub Hosted Runner | pytest 步骤 | 真实 stdio self-test | Job |
+| Hosted Runner | pytest | 真实 stdio self-test | Job ID |
 |---|---|---|---|
-| macos-latest | success | success | 107492403108 |
-| ubuntu-latest | success | success | 107492403422 |
-| windows-latest | success | success | 107492403438 |
+| macos-latest | success | success | 107578369436 |
+| ubuntu-latest | success | success | 107578369531 |
+| windows-latest | success | success | 107578369592 |
 
-以上状态已通过 GitHub Jobs API 实际读取，非推测。pytest 包含平台限定的 skip：systemd 凭据只在 Linux 测试；Windows 跳过 POSIX shebang、POSIX 安装包装器及需要额外权限的 symlink 用例。没有通过删去安全断言或关闭编码检查来让 Windows 通过。
+上述结果已从 GitHub Jobs API 真实读取。Windows 最终不是靠跳过命令失败用例通过；原始非零退出码断言保留，新增 PowerShell 测试还要求 `state=exited`，防止超时恰好返回预期非零值而误通过。
 
-这证明相关代码在三种 Hosted OS 上完成了上述自动化步骤，不等于已在用户的三台机器部署，也不等于三个原生凭据库或 ChatGPT/Tunnel 云端链路已经认证。此后的报告/说明更新不改变该已验证代码。
+本地 Linux 按不重叠分组验证：**173 passed，5 个 Windows 专用用例 skipped**。
+
+| 分组 | 结果 |
+|---|---|
+| Git、跨文件补丁、协议 | 43 passed |
+| 路径策略、文件服务、媒体、代码检索与批量读取 | 96 passed |
+| 安装、凭据与 Tunnel 管理 | 19 passed |
+| 命令会话及退出码 | 15 passed，5 skipped |
+
+`compileall`、安装 Shell 脚本语法检查及真实 stdio 自检通过。开发工具有单次执行时限，所以本地分组运行；远程 CI 运行完整 `pytest -q`，未把被中止的本地测试进程算作成功。
+
+## 真实执行覆盖
+
+- 本地 Git init/status/log/diff/add/commit；禁用 hooks/外部 diff，拒绝不安全 include/filter/alternates/gitdir 及敏感暂存路径。
+- 完整编程流程：创建有缺陷的函数和测试 → workspace_context/search_code/batch_read → 跨文件接口修复 → run_command 实际执行测试 → git_diff/add/commit。
+- 实际命令进程的文件写入、退出码、取消、超时、输出游标与淘汰、请求去重、相交工作区门控、EOF/服务退出和后代清理。
+- 正则独立 worker 的实际超时、忽略文件、字面/声明/标识符排序、扫描预算和批量读取错误处理。
+- 跨文件预检、多锁、dry-run、失败注入回滚、外部新修改不被回滚覆盖、旧单文件参数兼容。
+- 继承的图片解码、PDF 渲染、ZIP/二进制传输、SHA 冲突、备份恢复、路径保护及离线安装回归。
+
+## Windows CI 发现及处理
+
+1. [首轮 run 35981498872](https://github.com/macgaf/chatgpt-local-mcp-tunnel/actions/runs/35981498872)：macOS/Ubuntu 通过；Windows 原生命令退出码 7 被 PowerShell 折为 1。运行器增加最终状态捕获和显式退出码传递，并新增 0/3/19、PowerShell 错误、显式退出和恢复场景。
+2. [回归 run 35982168767](https://github.com/macgaf/chatgpt-local-mcp-tunnel/actions/runs/35982168767)：原生命令用例通过，但纯 Write-Output 场景仍失败。原断言没有显示完整状态，不能仅凭退出码把原因断言为超时。之后显式设置内置模块查找路径、增加结果诊断，并要求正常 exited 状态；PowerShell 专用启动测试显式给 90 秒预算，运行器默认短任务预算和真实超时测试没有放宽。
+3. 最终 run 35982777237 三平台全部通过。不要把此结果扩大为“任意 Windows 机器首次 PowerShell 模块加载必然在默认 30 秒内完成”；较慢环境可显式增加 timeout_seconds 或用 start_command。
+
+## 模拟与尚未完成的外部验收
+
+Git push 最后的网络发送为替身检查，只验证开关、精确远端白名单和固定 refspec；**没有使用用户凭据向真实远端推送项目**。本轮向 GitHub 提交本工具源码，是授权的 GitHub 连接器操作，不是这个新 MCP git_push 的端到端验收。
+
+OS keystore/Codex 注册/Tunnel 配置部分仍有替身测试。用户真实 Mac/Windows 安装、系统原生凭据库、Linux Secret Service/systemd daemon、真实 Tunnel 认证和 ChatGPT 图片消费、完整 MCP 一致性测试，仍需要目标环境验收。
+
+Shell 是显式启用的非沙箱执行，文件 deny/root 不限制任意命令实际访问的文件或网络。跨文件补丁是整批预检、逐文件原子替换、失败尽力恢复，不是多文件/崩溃原子事务。Git 安全模式明确不支持所有特殊 worktree/LFS 布局。测试通过不等于不存在漏洞。
+
+## 历史记录
+
+[v0.3 原始测试报告](https://github.com/macgaf/chatgpt-local-mcp-tunnel/blob/018a86dfacc4302a6dd636571f429289ae334011/TEST_REPORT.md) 保留了 112 项本地测试及此前三平台 CI 的完整结果。本次为在该版本基础上的功能扩展。
