@@ -1,3 +1,41 @@
+# 浏览器安全转存修复：本机验证记录
+
+本轮针对失败执行记录补充了真正的本机 `tunnel prepare` 入口；不是再次仅改安装提示词。修改在 `fix/browser-tunnel-preparation` 分支进行，基线为 `24ffe848087410b70eb3dfb2d3f1625bd237757c`。
+
+## 已实际验证
+
+执行位置为用户的 macOS Apple Silicon 机器，通过已授权 FileMCP；Python 3.14.6。测试使用临时 HOME、虚构资源和虚构凭据，不创建真实云端 Tunnel/key。
+
+- 新增 37 项浏览器/准备阶段测试，全部通过；总计 260 个用例。
+- 完整 pytest：**254 passed、6 skipped in 51.27s**。跳过包括五个 Windows 专用用例及 Linux-only systemd 用例，不计作通过。
+- 真实 stdio 子进程 `local-mcp self-test`：通过；Python 编译检查通过。
+- 在本机 native macOS Keychain 进行了虚构值写入、读回比较和测试条目删除：通过。不是内存替身。
+- 官方 Chrome DevTools MCP 私有子进程能够完成 initialize 和 tools/list；实际 list_pages 返回 `CHROME_DEBUG_ENDPOINT_MISSING`。Chrome 主进程存在，但官方 autoConnect 无法找到调试端点。
+- 已打开 Chrome 的 `chrome://inspect/#remote-debugging` 页面供本人确认，没有代替用户启用调试或授予系统权限。
+
+新增测试覆盖私有 stdio 原始数据不返回模型、禁止文件转存/截图、真实选中状态与点击数区分、所有最小权限条件、无授权不提交、创建不明不重复、保存失败恢复原弹窗、无关弹窗不导入、旧绑定不覆盖、keystore 来源不迁移、返回错误不泄露凭据以及实际绑定配置。
+
+## 发现并处理的回归问题
+
+首次完整运行是 247 passed、6 skipped、2 failed，未记作通过：
+
+1. 上一次文档改写遗漏了旧测试要求的“不通过工具参数转发输入”表述；两份 README 同步恢复并保留实际安全语义。
+2. 本机 FileMCP 的 GUI 启动环境继承了阻塞 SIGTERM 的 POSIX 信号掩码，原有跨进程锁测试的子进程因此不能按预期退出。用独立虚构子进程复核后，完整测试仅在测试启动进程中解除 SIGTERM/SIGINT 阻塞，未修改断言、超时或宿主设置。新浏览器进程也使用自己的 exec 包装器复位这两个信号，不改变 FileMCP/Chrome。
+
+完整 pytest 已退出成功，但后接 shell 脚本使用 zsh 只读变量名 status 使包装命令报错；随后单独执行 stdio self-test 和编译检查成功。本报告不把该 shell 包装器错误隐藏成整个命令成功。
+
+## 仍未完成，不能宣称成功
+
+- 当前 Chrome 调试连接批准及真实浏览器→keystore 虚构值端到端探针仍未通过；只有 native keystore 检查通过。
+- 新网页布局适配器未在当前真实创建表单上完成验收。无法验证控件或权限时明确失败，不能声称“点击即成功”。
+- 没有新建/修改/撤销真实 Tunnel 或 API key；没有运行使用真实 key 的认证请求；没有抢占正在运行的 FileMCP Tunnel。
+- 没有替用户更改 root、只读/读写、Shell/Git 推送开关，也没有部署常驻 MCP 或添加自启动。
+- 新增代码的 Linux/Windows 原生浏览器和凭据库、当前修复提交的远程 CI 尚未作为通过证据。下面原主线的测试记录只属于历史版本。
+
+本机源码及开发虚拟环境已建立，可从项目 `.venv/bin/local-mcp` 运行新入口；这不等于全局启动器、Codex 注册或 ChatGPT 连接已完成。
+
+---
+
 # 主线整合核验（2026-09-25）
 
 安装来源统一为 `main`，功能整合记录见 [PR #1](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/1)。本次仅更新文档与合并历史，保留功能分支；没有修改运行时代码、测试、依赖、工作流、版本号或用户本机配置。

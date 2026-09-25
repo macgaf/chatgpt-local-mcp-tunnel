@@ -132,7 +132,12 @@ def parser():
     code.add_argument('--codex-bin')
     subs.add_parser('install-tunnel-client',help='下载官方完整发行包并核对 SHA256SUMS')
     tunnel = subs.add_parser('tunnel')
-    tunnel.add_argument('action',choices=['configure','init','doctor','run'])
+    tunnel.add_argument('action',choices=['configure','init','doctor','run','prepare'])
+    tunnel.add_argument('--stage',choices=['preflight','cache-tunnel','permissions','submit-tunnel','submit-key','verify'],default='preflight')
+    tunnel.add_argument('--tunnel-name',default=APP)
+    tunnel.add_argument('--key-name',default=APP+'-runtime')
+    tunnel.add_argument('--allow-create',action='store_true',help='仅在已核验的网页表单上授权提交；不会创建全权限 key')
+    tunnel.add_argument('--confirm-target',action='store_true',help='操作者已确认目标组织/ChatGPT工作区；不是自动推定授权')
     diag = subs.add_parser('doctor')
     diag.add_argument('--with-tunnel',action='store_true')
     diag.add_argument('--network',action='store_true')
@@ -245,6 +250,10 @@ def main(argv=None):
                 return 0
             if args.action == 'configure':
                 result = configure_tunnel_interactive(args.config)
+            elif args.action == 'prepare':
+                from .tunnel_prepare import Preparation
+                result=Preparation(args.config).run(args.stage,name=args.tunnel_name,key_name=args.key_name,
+                    allow_create=args.allow_create,confirm_target=args.confirm_target)
             else:
                 result = tunnel_init(args.config) if args.action=='init' else tunnel_doctor(args.config)
         else:

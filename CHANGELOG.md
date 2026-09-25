@@ -1,5 +1,15 @@
 # Changelog
 
+## 未发布：浏览器安全转存与准备预检修复
+
+- 新增本机 `tunnel prepare` 分阶段入口：preflight、cache-tunnel、permissions、submit-tunnel、submit-key、verify；38 个 MCP 工具不变。
+- 复用已授权官方 Chrome DevTools MCP 私有 stdio 子进程，在本机内存中完成敏感值转存；不使用 filePath 或 Apple Events，不放宽 roots/TLS。
+- 提交前检查真实 Restricted/Read/Use 选中状态，不以点击计数代替权限生效；创建状态未知或保存失败时不盲目重复创建。
+- 缓存绑定直接进入运行器实际配置，保留已有权限；新 key 仅写 native keystore；旧凭据不覆盖、不撤销。
+- 新增 37 项测试；真实 macOS 全套 254 passed、6 平台专用 skipped，详细边界见 TEST_REPORT.md。
+- 当前真实 Chrome 调试连接仍需本人确认；网页适配、真实资源创建和认证尚未完成端到端验收。
+
+
 ## v0.4.0 主线整合 — 2026-09-25
 
 - 将 `feat/local-mcp-v0.3` 的编程、媒体、交互配置与持久日志修订整合到 `main`，安装入口统一为主线；保留功能分支历史。

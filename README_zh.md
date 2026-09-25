@@ -76,53 +76,45 @@ ChatGPT 聊天窗口 → OpenAI Secure MCP Tunnel → 本机 MCP → 你授权�
 完整使用顺序：**检查已有配置与凭据 → 缺失时准备网站资源并安全保存 → 本机安装接续缓存 → 诊断 → Codex 本地验收 → ChatGPT 连接使用**。已有安装先复用，不必为了按章节顺序操作而重建资源；只在 Codex 本地使用时，可跳过网站和 Tunnel 步骤。
 
 <a id="platform"></a>
-### 3.1 在 Codex 中自动准备 Tunnel 和 Runtime key：已有则复用，缺少才创建
+### 3.1 准备 Tunnel 和 Runtime key：先验证通道，再自动提交和保存
 
-**目标不是只打开网页，而是完成“查找／创建 → 本机安全保存 → 读回与认证验证”。** 允许本机程序读取并保存敏感值；禁止把值暴露在模型对话、工具参数／结果或日志里。目录和模式仍由用户选择，这一步不会自动开启文件写入、Shell 或 Git 推送。
+**这一步现在有实际本机入口，不再让 Codex 临时拼接转存脚本。** 先确认使用包含本修复的源码/安装；旧的 v0.4.0 仅有文档说明，版本号相同也可能没有 `tunnel prepare`。
 
-| 当前情况 | 自动处理 |
-|---|---|
-| 已有匹配的 Tunnel 和本机有效受限 key | 核验目标、权限与认证，直接复用 |
-| 网站已有合适 Tunnel，但本机未配置 | 核验工作区关联后自动缓存 ID |
-| 没有合适 Tunnel 或可用完整 key | 建立本项目专用资源，key 仅 Tunnels Read + Use |
-| 网站只剩旧 key 的掩码、本机没有完整值 | 不假称可以恢复；检查授权凭据来源，确实缺失才新建，保留旧 key |
-| 需要登录、验证码、系统授权或确有歧义 | 暂停该项等待用户处理，其他步骤继续 |
-
-**执行条件：**本机 Codex 需要已授权的浏览器控制工具和本机执行能力，并能让敏感值直接进入凭据库、而不是经模型转录。单有网页点击或 `new_page` 不够。本项目目前没有内置自动填写网站的专用命令；下面的提示词允许本机 Codex 在现有授权内准备安全转存辅助脚本，再实际操作。它不代表浏览器自动化已经在你的电脑验证。实施细则见 [自动准备与安全保存](docs/AUTOMATED_TUNNEL_SETUP.md)。
-
-| 网站入口 | 用途 |
-|---|---|
-| [Platform → Tunnels](https://platform.openai.com/settings/organization/tunnels) | 查找／创建并核验目标组织与 ChatGPT 工作区关联 |
-| [Platform → Runtime API keys](https://platform.openai.com/settings/organization/api-keys) | 创建本项目的 Restricted Runtime key，仅授予 Tunnels Read + Use |
-
-创建／修改 Tunnel 需要 Read + Manage，运行需要 Read + Use；Runtime key 的所属主体也须有对应权限，不需要额外新建 Admin key。旧 key 的完整值仅在创建时显示，网页掩码不能用于恢复。依据：[官方 Tunnel 权限说明](https://github.com/openai/tunnel-client/blob/master/docs/permissions.md)、[API key 显示规则](https://help.openai.com/en/articles/4936850-where-do-i-find-my-openai-api-key)。
-
-**直接复制给本机 Codex，无须预填 ID/key：**
-
-```text
-请在我的本机实际完成 chatgpt-local-mcp-tunnel 的 Tunnel 和 Runtime API key 准备，不要只打开网页、说明步骤或让我自行创建。
-仓库：https://github.com/macgaf/chatgpt-local-mcp-tunnel ，使用 main 的当前文档。
-
-本次授权：在我已登录且有权限的账号中，为本项目查找并复用合适的 Tunnel/凭据；确实缺少时创建专用 Tunnel 或 Restricted Runtime key，并自动保存到本机。不要撤销旧 key、修改其他应用的凭据、提升组织权限或改变项目文件访问权限。
-
-【如何处理敏感值】
-允许本机程序读取网站刚生成的 ID/key，并在本机内存中直接写入受保护配置和系统凭据库。禁止的是把实际值返回给模型、聊天、工具参数/结果、日志、截图、剪贴板历史或源码，不是禁止本机程序处理它们。不要再把“页面出现 ID/key”本身当作必须交回人工的理由。
-
-1. 先检查本工具的已有配置、凭据引用和目标组织/工作区选择，敏感值只在本机处理，对话只返回状态。已确认的选择直接复用；没有历史选择且只有一个可验证目标时采用该目标；多个目标有歧义才让我按名称选择一次。
-2. 检查本机已授权的浏览器/Computer Use，以及浏览器到本机凭据库的安全转存通道。有 chrome-devtools 就实际检查其能力，不只调用 new_page。若普通工具会把页面完整快照或密钥返回到对话，使用已授权的本地浏览器控制接口，由本机程序完成敏感阶段；允许为此准备小型辅助脚本并先用虚构值测试。不要猜调试端口、导出登录 Cookie、绕过工具限制或降低浏览器安全设置。纯网页点击工具不等于已有安全转存能力。
-3. 在创建云端资源前，先确认本机凭据库可以保存并读回。macOS 使用 Keychain，Windows 使用 Credential Manager，Linux 桌面使用 Secret Service；已有 systemd 等来源按原方案处理，不擅自迁移。凭据库锁定或需要系统授权时让我完成授权，然后继续，不改存明文。
-4. 打开 https://platform.openai.com/settings/organization/tunnels 。优先核验本机已绑定 Tunnel 的组织和目标 ChatGPT 工作区；没有绑定时查找本项目的合适 Tunnel，存在则复用并缓存，不存在才新建。需要多个候选中选择或改变现有共享 Tunnel 的工作区关联时只询问该项。不能把另一个仍在运行的 FileMCP Tunnel 直接抢占过来。
-5. 检查该 Tunnel 的本机 Runtime key。可以读出不等于有效：还要核验所属上下文、Restricted 且仅 Tunnels Read + Use，以及实际认证。有效且权限合适就复用。网站只有旧 key 的掩码而本机没有完整值，不算“已缓存”，也不能从掩码恢复；经检查确实没有可用完整值时，本次允许创建一个新的本项目专用 Restricted key，保留所有旧 key。
-6. 需要新 key 时打开 https://platform.openai.com/settings/organization/api-keys ，实际完成名称、Restricted、Tunnels Read + Use 的选择和提交。禁止 All、Admin key 或为本任务扩大角色权限；页面没有所需权限选项就报告缺项，不换成全权限 key。
-7. 最终“提交创建 → 取得完整新 key → 写入凭据库 → 读回核验”应在同一个不返回敏感数据的本机程序中连续完成，关闭其原始 DOM/网络跟踪及截图输出。Tunnel ID 写入本工具受保护配置，key 正文只入系统凭据库；未安装 MCP 时保存本机准备状态供安装阶段接续，不伪称已安装。验证保存成功后再关闭密钥弹窗。创建结果不明或保存失败时先查本地进度和现有页面，不再次点击创建、不自动撤销资源。
-8. 保存后再从本机存储读回，用真实 Tunnel 请求验证认证，不能用普通模型 API 调用代替。已安装本工具时继续运行 key status、tunnel init、doctor --with-tunnel；无安装时分别报告凭据验证和“本机 MCP 尚未安装”。超时、DNS/TLS、403、凭据库锁定都先排查，不据此重复生成 key。保留 root、mode、write_roots、命令/推送开关及无关配置，不自动建立常驻服务。
-9. 登录、验证码、系统凭据库确认、确实缺少权限或目标选择有歧义时才暂停相关步骤。安全转存通道确实不可用时，具体说明缺少什么；不要把手工复制作为默认方案，也不要让敏感值绕经对话。其他可完成的检查继续执行。
-
-完成标准是“资源已存在并核验 + 本机已安全保存并读回 + 认证有实际结果”，不是“网页已打开”。重复执行先复用，不重复创建。
-最后只报告：Tunnel 新建/复用/未完成，工作区关联，Runtime key 新建/复用/未完成，本机保存和读回结果，认证结果，本机配置/日志路径，以及确切阻碍。不要输出任何完整或部分 ID/key。
+```bash
+local-mcp tunnel prepare --stage preflight
 ```
 
-**完成标志：**Tunnel 已存在且关联核对、本机保存及读回成功、认证有明确实际结果；仅打开网页或看到 key 名称不算完成。新 key 正文直接保存到系统凭据库，不需要再经用户复制到聊天或重复录入。无法确认的项目报告“未验证”，不能把这个步骤称为 ChatGPT 已连接。
+预检真实检查系统凭据库、已授权 Chrome 调试连接、浏览器虚构值→本机内存→凭据库的读回通路。失败就不创建资源。没有安装启动器时，可用已安装本项目依赖的虚拟环境执行 `python -m home_readonly_mcp.cli` 代替 `local-mcp`。
+
+**真实 ID/key 不通过工具参数转发输入，也不返回给模型。** 本机辅助进程直接处理数据，不使用 `evaluate_script.filePath`、明文临时文件或 Apple Events；不扩大 roots、不猜调试端口、不导出 Cookie。浏览器原始结果只在本机私有 stdio 管道中处理，最终只返回固定状态。
+
+| 阶段 | 本机命令 | 完成标准 |
+|---|---|---|
+| 通道预检 | `tunnel prepare --stage preflight` | 三项实际检查通过，不是只检测到命令存在 |
+| 缓存已有专用 Tunnel | `tunnel prepare --stage cache-tunnel --confirm-target` | 同名资源唯一，目标已由操作者确认，关联存在，本机绑定保存 |
+| 提交已准备的 Tunnel 表单 | `tunnel prepare --stage submit-tunnel --allow-create --confirm-target` | 名称/范围可观察，提交一次，读取并核对新资源 |
+| 选择并核对 key 权限 | `tunnel prepare --stage permissions` | Restricted、Read/Use 实际选中、总数2、其他权限None |
+| 提交并安全保存 key | `tunnel prepare --stage submit-key --allow-create` | 一个本机进程完成提交→捕获→native keystore→读回 |
+| 读取认证 | `tunnel prepare --stage verify` | 真实单个 Tunnel 读取请求通过；Use/ChatGPT仍须另验收 |
+
+表内命令均加 `local-mcp` 前缀；没有真实 ID/key 参数。专用资源默认名称是 `chatgpt-local-mcp-tunnel` / `chatgpt-local-mcp-tunnel-runtime`。`--confirm-target` 是已经取得目标确认的声明，不是让模型自动扩大授权。只读/读写、目录及 Shell/推送权限不由网站准备阶段改变。
+
+网站仍由已授权的本机浏览器助手导航：[Tunnels](https://platform.openai.com/settings/organization/tunnels)、[Runtime API keys](https://platform.openai.com/settings/organization/api-keys)。组织、Platform 项目和 ChatGPT 工作区分别核对，不把 Default project 当成 ChatGPT 工作区。现有 FileMCP 资源不抢占；合格缓存复用，缺少才创建专用资源。
+
+**复制给本机 Codex：**
+
+```text
+请使用本仓库已实现的 tunnel prepare 准备 Tunnel 和 Runtime key，不只打开网页，不再临时编写 AppleScript/明文转存。
+
+1. 先复用已有配置和已确认目标，使用完整虚拟环境运行 tunnel prepare --stage preflight。只有系统凭据库、Chrome连接和端到端虚构值探针都通过，才进入创建。CHROME_DEBUG_ENDPOINT_MISSING 时让我在 Chrome 的 chrome://inspect/#remote-debugging 确认授权，不以 Apple Events 或放宽 roots 替代。
+2. 只在目标组织/ChatGPT工作区有歧义时按名称询问一次。保留正在服务 FileMCP 的 Tunnel；查找本项目专用资源，有则通过 cache-tunnel 缓存。没有时在网页准备正确名称/范围表单，再通过 submit-tunnel --allow-create --confirm-target 提交并缓存。没有取得确认不能加 confirm-target。
+3. 需要新 Runtime key 时准备 Restricted 表单，调用 permissions。每次点击后读取实际 checked 状态；最终仍是 None 或 0 selected permissions 就报失败，不能把点击两次当作选好了。
+4. 权限验证通过后使用 submit-key --allow-create，在同一本机进程内完成新 key 的生成、保存和读回；不在模型工具结果中取得 key 再转发。已有缓存不覆盖，不撤销旧 key；创建结果不明先恢复进度，不重复提交。
+5. 用 verify 检查 Read 认证；已安装时再运行 tunnel init、doctor --with-tunnel。目录/模式由安装步骤单独确认，本步不改变权限、不开后台服务。
+6. 最后分别报告资源、目标关联、权限证据、保存/读回、Read认证、Use认证及ChatGPT调用的实际状态。浏览器授权、页面适配或认证未通过时明确标为未完成，不输出任何 ID/key 正文或尾号。
+```
+
+**重要边界：**这是固定的分阶段本机执行器，不是已经验证过所有网站界面的无人值守机器人。账号/工作区选择和非敏感表单准备仍由浏览器助手完成；适配器不识别控件或选中状态时拒绝提交。完整行为、缓存来源、恢复方式和目标机验收见 [自动准备说明](docs/AUTOMATED_TUNNEL_SETUP.md)。
 
 <a id="install"></a>
 ### 3.2 在 Codex 中用提示词安装本机 MCP：选择目录和模式，复用已保存凭据
