@@ -1,90 +1,138 @@
-# Tunnel 与 Runtime key：自动准备、复用和本机安全保存
+# Tunnel 自动准备：实际本机入口与验收边界
 
-本页是给**用户本机 Codex**的执行规程，完整提示词在 [README 3.1](../README.md#platform)。目标是实际完成查找、创建、保存和验证，不是只打开网站。
+## 为什么之前的提示词没有完成任务
 
-**实现状态：**本项目已有本机配置、native keystore、隐藏输入、Tunnel 初始化和诊断接口；当前没有内置“一键创建 OpenAI 网站资源”的浏览器适配器。这里授权并指导本机 Codex 使用其已经授权的浏览器控制能力，必要时准备并测试小型本地转存脚本。不能把本次文档修订说成浏览器自动化已经实机验收，也不要虚构 `tunnel provision` 等不存在的命令。
+此前文档只让 Codex 临时拼出浏览器→凭据库程序，没有交付可执行的转存入口。执行记录还出现了两个独立失败：浏览器文件输出路径被 roots 拒绝，转用 Apple Events 又遇到 macOS 授权拒绝；权限菜单虽被点击，最终仍为 `Tunnels / None`、`0 selected permissions`。Keychain 的虚构值测试反而已经通过。
 
-## 1. 自动化授权与人工边界
-
-用户明确使用该提示词时，授权为本项目创建**缺失的** Tunnel、专用受限 key，并保存到自己的电脑。普通字段选择、点击创建和保存不是默认人工步骤。仅仅因为页面包含 ID/key，不足以要求用户接管；正确做法是由本地程序处理敏感值，模型只收到状态。
-
-组织/工作区和目录/模式是不同选择。网站准备不授权更改 root、读写模式、文件规则、Shell、Git 推送或启动服务。复用本次已明确的组织与工作区；仅有一个可验证目标时可采用该目标，但不能仅凭浏览器当前选中页推定用户授权。多个目标或冲突才询问一次。不扩大现有共享 Tunnel 的关联范围，不抢占其他在线 runtime。
-
-登录、验证码、系统凭据库解锁和管理员审批仍由用户本人完成。缺少角色权限时报告缺项；不把“自动配置”解释为可自行授予管理权限。
-
-## 2. 两条不同的数据通道
-
-```text
-模型/对话：任务、界面标签、候选名称、状态、错误类别
-
-用户本机：已授权浏览器 → 本机程序内存 → 系统凭据库
-                                   └→ 受保护的 Tunnel 配置
-```
-
-允许本机程序从用户授权页面读到真实 ID/key，不允许把它们返回到工具消息。先让一个工具返回完整 key，再用下一个工具保存，已经把 key 放进工具日志，**不符合这条路线**。仅在最终回复中打码也不够。
-
-使用可在同机内完成整个敏感阶段的浏览器控制接口；若工具每次点击都附带完整 DOM/截图，先确认它是否支持关闭或安全过滤这些输出，再执行最终创建。Playwright/CDP 等只是可能的实现选择，必须是现有工具明确支持、已授权的本地连接；不能猜端口、偷取浏览器数据库、复制 Cookie、绕过上层工具限制或放开公网调试端口。不能把云端浏览器里读取的 key 经模型转给本地程序。
-
-辅助程序的源代码只能包含选择器、状态逻辑和存储调用，不能包含真实 key/ID。原始网络 body、DOM、trace、HAR、录像、截图、异常局部变量和第三方调试日志均不得成为返回值或持久调试材料。采用“允许字段列表”输出状态，而不是依靠一个匹配 `sk-` 的正则就宣称万无一失。普通页面确需查看时，仅返回去掉敏感字段的标签与控件信息；截图须在离开本机前遮蔽，不能截图上传后再遮蔽。
-
-## 3. 先检查缓存，不是先点新建
-
-| 观察到的情况 | 应采取的动作 |
-|---|---|
-| 本机已有 ID、key，目标一致、权限合适、验证通过 | 直接复用；不重新创建，不要求手工复制 |
-| 网站已有合适 Tunnel，本机未绑定 | 本机程序取得 ID，核验关联后缓存 |
-| 本机凭据库锁定/拒绝访问 | 先解锁或授权；不能当成“没有 key” |
-| 网站有旧 key 条目，本机没有完整值 | 仅能确认条目存在；检查本项目已授权的其他凭据来源，确实缺失则新建专用受限 key |
-| 本机有可用但全权限/其他项目的 key | 不用它冒充本项目最小权限 key，不改动别的应用；建立专用受限 key |
-| 返回 401 | 先排查账号/组织、配置和凭据有效性；确认不可用再处理，不盲目连续创建 |
-| 返回 403、DNS/TLS 错误或超时 | 排查权限、关联和网络；不会因为重建 key 自动解决 |
-| 创建请求超时、页面状态不明 | 先核对云端列表和本机进度；禁止直接重复提交 |
-| 新 key 已生成但本地保存失败 | 保留当前敏感弹窗，先修复保存路径；不得关闭后声称成功，也不得不断生成新 key |
-
-旧 key 的完整值只在创建时展示，不能从网站掩码恢复。“缓存已有 key”指复用本机或用户明确授权的凭据存储中的完整值，不是抓取网页隐藏值。不能全库扫描其他应用的秘密；密码管理器需要其自身明确授权的本地接口。
-
-## 4. 创建前建立安全保存能力
-
-先预检系统凭据库写入/读回能力：用本项目独立临时条目和虚构数据测试，只删除自己创建的测试条目。预检未通过时不要先生成真实 key。
-
-本机脚本可参考本项目实际实现：
-
-- `policy.locations()` 返回配置、安装和状态目录，尊重 XDG/Windows 路径。
-- `credentials.native_backend()` 选择明确的 OS backend，不能用可能明文回退的通用选择器。
-- 当前运行器的 keystore 服务名为 `chatgpt-local-mcp-tunnel`，账号键为本地真实 Tunnel ID。值直接在本机内存中传给 backend，不经 shell 参数或工具入参；读回只比较是否一致，不输出值。
-- `onboarding.load_settings()` / `save_settings()` 用于保留已有设置的本地读写。现有 `save_key(value=...)` 标注为测试入口，不当作已发布的自动化 API；辅助程序应按实际 backend 与配置接口实现，并测试取消、重复执行及失败恢复。
-- 保留现有 `key_source`。已有 systemd 方案须在其授权的本地服务上下文中验证，不偷换成明文或桌面 keyring。尚未部署的无桌面 Linux 按 [Linux 凭据方案](LINUX_CREDENTIALS.md) 处理。
-
-尚未安装 MCP 时，辅助程序可以只建立凭据准备状态：在本项目受保护配置目录中维护自己专用的 `provisioning-state.json`，只含必要的目标/资源标识、阶段、权限检查和时间，不含 key 正文。该文件是辅助程序的接续记录，**不是当前运行器会自动读取的配置**。安装阶段须由同一本机脚本核验后导入 `config.json`，保留用户的目录和权限选择，并验证运行器确实可以从 keystore 读取 key；不能创建看似成功但运行器根本不读取的缓存。
-
-本地状态必须限定权限（POSIX 用户专属目录/文件，Windows 审核当前用户 ACL），拒绝链接与不明覆盖，写前检查并原子更新。进程内存、浏览器会话、系统审计仍可能保留痕迹；不承诺端到端“零留痕”。
-
-## 5. 创建和验证必须分开报告
-
-优先复用已授权网页会话。Tunnel 管理需要 Read + Manage；使用需要 Read + Use。新 key 选择 **Restricted，仅 Tunnels Read + Use**，其他权限不因默认 All 而保留。Runtime key 不能用于其没有权限的管理操作；不额外创建 Admin key。若用户本机原本就有明确授权的管理凭据及官方接口，可使用它，但不索取它到聊天，也不把它改作 runtime key。
-
-最终敏感阶段应由一次本机程序执行：重新确认目标及权限 → 提交创建 → 取得完整新值 → 写 keystore → 读回比较 → 保存绑定 → 只输出结果。保存成功之前不关闭一次性显示弹窗。若保存失败，保留旧配置和凭据，不自动撤销旧 key 或重试创建；精确报告阶段。
-
-`key status` 只证明本机凭据能读到，不证明远端认证或权限正确。权限需要实际网页元数据/检查结果，认证需要 Tunnel 真实请求。使用已安装 `tunnel init`、`doctor --with-tunnel` 时，还须区分本机 MCP 启动失败和远端认证失败；诊断未做认证探针就标为未验证。不调用付费模型 API 来试 key，不把站点列出的 key 名称或控制面健康状态当作 ChatGPT 已连接。
-
-重复执行应基于同一目标的本地状态与云端证据恢复；新建阶段加本项目级互斥，结果不明先查询、不自动再次提交。仅缓存状态，没有服务器证据，不足以认定云端资源已创建。
-
-## 6. 安装接续和备用方式
-
-第 3.2 节先选择 root/mode，再安装本机服务，然后接续第 3.1 节缓存。缓存可用就**跳过** `tunnel configure` / `key set`；不能自动保存后又让用户输入一遍。
-
-确实没有安全浏览器→keystore 通道时，报告缺少的接口、已经完成的步骤，以及怎样完成最小人工步骤。原有隐藏输入仍可使用：
+因此，增加提示词长度或只批准 Apple Events 都不能保证成功。现在提供固定的本机管理入口：
 
 ```bash
-local-mcp tunnel configure
-local-mcp key status
-local-mcp key set
+local-mcp tunnel prepare --stage preflight
 ```
 
-不要给不存在的自动命令写“可直接运行”，也不要仅加一段提示词就宣称新增了已验证的网页 provisioning 功能。此修订不修改 38 个 MCP 工具、权限默认值或运行程序。
+**实现与限制：**已实现私有 stdio 浏览器通道、凭据库预检、Tunnel 绑定缓存、权限实际状态检查、已准备表单的提交/保存和读取认证。不是承诺一条命令自动完成任意网站界面的账号选择、所有表单填写或权限审批。站点适配器采取保守识别，页面结构/选中状态无法证明时返回明确错误，不盲目提交。当前真实 Chrome 连接及页面适配需要在目标机验收，合成页面测试不能代替它。
 
-## 参考
+## 1. 两条通道，不让模型转录密钥
 
-- [OpenAI Secure MCP Tunnel：权限及工作区关联](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)
-- [OpenAI 官方 Tunnel 客户端：Runtime key 最小权限](https://github.com/openai/tunnel-client/blob/master/docs/permissions.md)
-- [OpenAI：API key 只在创建时完整显示](https://help.openai.com/en/articles/4936850-where-do-i-find-my-openai-api-key)
+```text
+Codex：公开控件标签、目标名称、操作步骤、固定状态
+
+本机 Python 程序
+  ├─ 以用户已有 Codex 配置启动官方 Chrome DevTools MCP 私有子进程
+  ├─ 在该子进程的 stdin/stdout 管道内处理浏览器返回值
+  ├─ 在本机内存中将新 key 写入 native keystore 并读回比较
+  └─ 返回固定状态字段；不返回原始 DOM、截图、网络响应或 ID/key
+```
+
+不使用 `evaluate_script.filePath`，不产生装有明文 key 的临时 JSON，不扫描调试端口，不导出 Cookie，不启用 Apple Events，不添加不受限文件路径或忽略证书的选项。调试/性能统计关闭；私有子进程的原始输出和错误不写入日志。
+
+浏览器沿用用户已配置的官方 `chrome-devtools-mcp` 和 `--autoConnect`，保留已配置的 channel/userDataDir；npx 仅使用本机已有缓存，不偷偷升级。只有普通浏览器工具已授权，不等于新本机程序已经获得 Chrome 的调试连接批准。
+
+**真实 ID/key 不通过工具参数转发输入或返回给模型。** 本机程序内部的读取和保存不是泄露到模型；但不能承诺浏览器、操作系统、底层依赖完全零留痕。
+
+## 2. 先跑完整的预检，再碰创建按钮
+
+```bash
+local-mcp tunnel prepare --stage preflight
+```
+
+预检分别检查 native keystore、Chrome 实际连接，以及浏览器生成虚构值→进程内存→凭据库→读回→清理测试条目的端到端通路。一个检查失败不掩盖另外的结果。它不创建 Tunnel/key，不更改 root、读写、Shell 或 Git 推送。
+
+主要错误：
+
+| 错误码 | 意义和处理 |
+|---|---|
+| `CHROME_DEBUG_ENDPOINT_MISSING` | 官方 autoConnect 找不到 DevToolsActivePort。本人在 Chrome `chrome://inspect/#remote-debugging` 确认调试授权，然后重跑；不是给 Python/Terminal 添加 Apple Events 权限 |
+| `CHROME_CONNECTION_OR_APPROVAL_REQUIRED` | Chrome 未连接或正在等本人批准。不会改端口/复制会话绕过 |
+| `KEYSTORE_UNAVAILABLE` | 当前解释器缺少 keyring 或没有可用系统凭据库。使用完整安装虚拟环境；无桌面 Linux 保留原 systemd 方案 |
+| `TRANSFER_PROBE_FAILED` | 虚构值的端到端传输失败，禁止继续生成真实 key |
+| `BROWSER_CONFIGURATION_AMBIGUOUS` | 多个可用官方浏览器配置，需要明确选定，不自行换浏览器身份 |
+
+没有安装全局启动器时，可以在已安装项目依赖的开发虚拟环境中运行：
+
+```bash
+python -m home_readonly_mcp.cli tunnel prepare --stage preflight
+```
+
+这里的 python 必须来自该虚拟环境。不要把开发环境中的 editable 安装称为已安装常驻 MCP、已注册 Codex 或已连接 ChatGPT。
+
+## 3. 目标选择与 Tunnel 缓存
+
+组织、Platform 项目和 ChatGPT 工作区是三件事，`Default project` 不证明 ChatGPT 工作区已确认。已有明确选择复用，确有歧义才按名称问一次。不抢占仍服务于 FileMCP 的 Tunnel；默认只处理名为 `chatgpt-local-mcp-tunnel` 的专用资源。
+
+Codex 可继续使用已授权浏览器帮助用户导航/选择公开控件，但不要把包含 ID 的整页快照返回到对话。最终 ID 读取与本机保存交给本机入口：
+
+```bash
+local-mcp tunnel prepare --stage cache-tunnel --confirm-target
+```
+
+`--confirm-target` 表示操作者已确认目标组织/ChatGPT 工作区，不是让程序凭空认定当前组织正确。只有唯一同名 Tunnel 且观察到组织和工作区关联时缓存；已有不同的本机绑定不覆盖。可使用 `--tunnel-name` 指定用户确认的公开名称，参数不接受真实 ID。
+
+不存在时，在网页准备新建 Tunnel 的名称、组织和工作区表单，确认目标后，由本机进程完成最终提交和读取：
+
+```bash
+local-mcp tunnel prepare --stage submit-tunnel --allow-create --confirm-target
+```
+
+提交前要求可观察的名称与范围字段，提交后核对关联。无法解析控件、出现多个同名资源、范围无法对应或创建结果不明时停止，不再次创建。此阶段不负责替用户授予组织权限；本版也没有不受限的自动填写入口。
+
+绑定直接保存到运行器实际读取的 `config.json`，保留现有 root/mode/write_roots/日志/其他设置；不再仅生成运行器不会读取的临时 status.json。
+
+## 4. Runtime key：实际选中状态，不是点击计数
+
+先在正确组织/项目下打开创建 Runtime key 表单。需要权限仅为 Restricted → Tunnels Read + Use，其他资源为 None。可让本机入口选择并检查 Tunnels 权限：
+
+```bash
+local-mcp tunnel prepare --stage permissions
+```
+
+它在每次点击后重新获取控件；菜单关闭时重新打开，不复用过期元素。提交门槛同时要求：
+
+- Restricted 实际选中；Read 和 Use 都有明确 checked/selected 状态。
+- 选择总数为 2，其他资源权限均为 None，项目已选。
+- 界面可观察且字段唯一。
+
+`permissionOptionsClicked=2` 不满足任何提交门槛；实际仍为 None/0 时返回 `PERMISSION_SELECTION_NOT_APPLIED` 或 `PERMISSION_PROOF_INCOMPLETE`，不会尝试全权限 key，也不会宣称配置成功。
+
+最终创建、捕获、保存和读回在同一个本机程序内进行：
+
+```bash
+local-mcp tunnel prepare --stage submit-key --allow-create
+```
+
+默认专用名称为 `chatgpt-local-mcp-tunnel-runtime`，可用 `--key-name` 提供另一个已确认的公开名称。没有 `--allow-create` 不提交创建。不会把 key 返回给 Codex 再调用另一个工具保存。
+
+程序先做 Keychain/Credential Manager/Secret Service 的虚构值探针，保存一份无 key 正文的创建进度记录，再提交一次。浏览器内的临时标记只绑定这次创建的结果弹窗；重试不应收集随后打开的无关密钥弹窗。新 key 正文只进入系统凭据库，保存后读回比较；弹窗不被自动关闭。
+
+原有 `systemd`/`environment` 来源不会自动迁移为 keyring。旧 key 只有掩码且本机没有完整值时不能恢复；也不扫描其他应用的整个凭据库。
+
+## 5. 恢复、复用及认证
+
+创建状态写在受保护的 `browser-preparation.json`，不含 key 正文。已有创建未完成先恢复同一结果弹窗；没有对应所有权标记、页面已刷新或结果不明时返回 `CREATION_OUTCOME_UNCERTAIN`，不再次点击创建、不自动撤销资源。保存失败时保留原配置，不因 Keychain 锁定、网络超时或 403 重新生成 key。
+
+本机已有 key 时不会覆盖。与本工具保存的创建记录和凭据指纹一致时可复用，返回 `permission_verification=saved_creation_receipt`；这不是当前网页权限的新检查。外部改过权限或记录不匹配时，需要重新核查，不伪称已验证最小权限。
+
+```bash
+local-mcp tunnel prepare --stage verify
+```
+
+读取认证使用本机存储的值请求官方单个 Tunnel 元数据端点，拒绝重定向，不调用付费模型 API。成功最多证明此请求的 Read 认证和目标对应；**Use 认证和 ChatGPT 连接仍标为未检查**。安装 MCP 后继续 `tunnel init` 和 `doctor --with-tunnel`，再做 ChatGPT 实际工具调用验收。
+
+## 6. 给本机 Codex 的执行指令
+
+```text
+在当前修复版本的 chatgpt-local-mcp-tunnel 中完成 Tunnel 准备，使用已实现的本机入口，不再临时拼接 AppleScript/明文文件转存。
+
+1. 保留已有目录/模式/凭据来源。使用项目完整虚拟环境实际运行 tunnel prepare --stage preflight；必须核对每项状态。Chrome 调试连接等待本人授权时，只暂停该项；不要把 Keychain 已通过说成浏览器也已通过。
+2. 目标组织、Platform 项目和 ChatGPT 工作区分别确认；已有选择复用，不占用正在运行的 FileMCP Tunnel。浏览器非敏感控件可由你导航，最终 ID/key 值只能走本机私有进程。
+3. 专用 Tunnel 已有时用 cache-tunnel 缓存；没有时准备正确网页表单，再用 submit-tunnel --allow-create --confirm-target 提交并缓存。没有真实目标确认不能加 confirm-target。
+4. 为缺失的专用 key 准备 Restricted 表单，运行 permissions。只有 Read/Use 真实选中、总数2且其他权限None才继续 submit-key --allow-create；点击次数不是证据。
+5. 记录或保存失败后恢复原创建，不重复创建；已有可用缓存优先复用。所有值不通过工具参数转发输入，不返回原始 DOM、截图、API 响应或密钥。
+6. 最后分别报告绑定、权限证据、保存/读回、Read认证、Use认证和客户端调用，不把局部通过当成整体完成。页面适配器不识别时报告具体阶段，不能关闭验证硬凑成功。
+```
+
+## 本轮验证范围
+
+单元/进程测试覆盖私有 stdout、不用文件转存、权限点击无效、整套权限门槛、保存失败后不重复创建、未知错误不泄露凭据、设置保留和已有缓存复用。目标机的 native Keychain 虚构值测试已执行。
+
+实际 Chrome 预检若返回 `CHROME_DEBUG_ENDPOINT_MISSING`，说明网站状态还没有读取验证，不能声称表单适配器、真实资源创建和认证已验收。以 `TEST_REPORT.md` 和当前预检输出为准，不沿用旧 CI 代替新增代码验证。

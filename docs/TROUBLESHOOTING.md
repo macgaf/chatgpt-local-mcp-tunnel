@@ -93,3 +93,12 @@ FileMCP 原作可能报 `Command session is active; finish or cancel it before f
 `git pull` 只更新仓库，不更新已复制到版本化安装目录的 MCP。按 README [第 3.7 节](../README.md#upgrade) 重新执行完整安装器，再重启由用户管理的 MCP／Tunnel 实例并刷新客户端工具发现。v0.4.0 的交互安装和日志修订沿用相同版本号，需同时核对源码提交、安装器结果及 `logs path`，不能只看 `--version`。
 
 排查时保留现有 root/mode/write_roots、凭据、日志配置和其他 Codex 条目；不得通过重新安装扩大权限或要求用户把 ID/key 发到聊天。
+
+
+## 自动准备卡在网页或未创建任何资源
+
+先运行 `local-mcp tunnel prepare --stage preflight`，不要重写更长的提示词或先创建 key。`CHROME_DEBUG_ENDPOINT_MISSING` 指官方 autoConnect 缺少 Chrome 调试端点；本人在 `chrome://inspect/#remote-debugging` 完成允许连接的确认。它不同于 Apple Events 的 -1743，不需要用 AppleScript 绕行，也不应放开文件工具的 roots。
+
+Keychain 单独通过不等于浏览器通路通过。权限点击两次而仍显示 None/0 不等于已选 Read+Use；用 `permissions` 阶段验证真实状态，不通过就不提交。`CREATION_OUTCOME_UNCERTAIN` 必须恢复同一进度/结果弹窗，不再次生成 key。
+
+新命令依赖包含该修复的源码；只更新 README 的旧 0.4.0 安装没有它。检查 `local-mcp tunnel --help` 是否列出 prepare，并核对实际源码 SHA；开发环境使用项目 `.venv/bin/local-mcp`。完整流程见 [自动准备说明](AUTOMATED_TUNNEL_SETUP.md)。
