@@ -73,41 +73,59 @@ ChatGPT 聊天窗口 → OpenAI Secure MCP Tunnel → 本机 MCP → 你授权�
 
 **下面的安装和排错提示词发给运行在你本机、具备终端权限的 Codex。** 首次安装不需要先启用本 MCP，直接使用 Codex 已有的本机工具。网站操作还需要当前 Codex 已启用并获授权的浏览器或 Computer Use；仅有 CLI 不代表具备网页点击能力。
 
-完整使用顺序：**网站配置 → 本机安装与配置 → 诊断 → Codex 本地验收 → ChatGPT 连接使用**。只在 Codex 本地使用时，可跳过网站和 Tunnel 步骤。
+完整使用顺序：**检查已有配置与凭据 → 缺失时准备网站资源并安全保存 → 本机安装接续缓存 → 诊断 → Codex 本地验收 → ChatGPT 连接使用**。已有安装先复用，不必为了按章节顺序操作而重建资源；只在 Codex 本地使用时，可跳过网站和 Tunnel 步骤。
 
 <a id="platform"></a>
-### 3.1 在 Codex 中用提示词配置网站上的 Tunnel 和 API key
+### 3.1 在 Codex 中自动准备 Tunnel 和 Runtime key：已有则复用，缺少才创建
 
-**准备：**登录自己的 OpenAI Platform 和目标 ChatGPT 工作区。已有 Tunnel 可以复用，但同一个 Tunnel ID 不要同时交给 FileMCP 和本工具两个运行实例使用。
+**目标不是只打开网页，而是完成“查找／创建 → 本机安全保存 → 读回与认证验证”。** 允许本机程序读取并保存敏感值；禁止把值暴露在模型对话、工具参数／结果或日志里。目录和模式仍由用户选择，这一步不会自动开启文件写入、Shell 或 Git 推送。
 
-| 网站入口 | 要完成的设置 |
+| 当前情况 | 自动处理 |
 |---|---|
-| [Platform → Tunnels](https://platform.openai.com/settings/organization/tunnels) | 创建或选择 Tunnel，由本人在本机保存 `tunnel_id`，核对目标组织和 ChatGPT 工作区关联 |
-| [Platform → Runtime API keys](https://platform.openai.com/settings/organization/api-keys) | 创建 Restricted Runtime key，仅授予需要的 Tunnels Read + Use |
-| [Platform → Organization roles](https://platform.openai.com/settings/organization/people/roles) | 权限不足时核对角色；创建／修改 Tunnel 需要 Read + Manage，运行或选用 Tunnel 需要 Read + Use |
+| 已有匹配的 Tunnel 和本机有效受限 key | 核验目标、权限与认证，直接复用 |
+| 网站已有合适 Tunnel，但本机未配置 | 核验工作区关联后自动缓存 ID |
+| 没有合适 Tunnel 或可用完整 key | 建立本项目专用资源，key 仅 Tunnels Read + Use |
+| 网站只剩旧 key 的掩码、本机没有完整值 | 不假称可以恢复；检查授权凭据来源，确实缺失才新建，保留旧 key |
+| 需要登录、验证码、系统授权或确有歧义 | 暂停该项等待用户处理，其他步骤继续 |
 
-Runtime key 的所属用户／服务账号也必须对目标 Tunnel 有权限。通过网站创建 Tunnel 的流程不需要给本程序配置 Admin key。以上权限划分见 [OpenAI Tunnel 权限说明](https://github.com/openai/tunnel-client/blob/master/docs/permissions.md)。
+**执行条件：**本机 Codex 需要已授权的浏览器控制工具和本机执行能力，并能让敏感值直接进入凭据库、而不是经模型转录。单有网页点击或 `new_page` 不够。本项目目前没有内置自动填写网站的专用命令；下面的提示词允许本机 Codex 在现有授权内准备安全转存辅助脚本，再实际操作。它不代表浏览器自动化已经在你的电脑验证。实施细则见 [自动准备与安全保存](docs/AUTOMATED_TUNNEL_SETUP.md)。
 
-**复制给 Codex（不需要预填 Tunnel ID 或 API key）：**
+| 网站入口 | 用途 |
+|---|---|
+| [Platform → Tunnels](https://platform.openai.com/settings/organization/tunnels) | 查找／创建并核验目标组织与 ChatGPT 工作区关联 |
+| [Platform → Runtime API keys](https://platform.openai.com/settings/organization/api-keys) | 创建本项目的 Restricted Runtime key，仅授予 Tunnels Read + Use |
+
+创建／修改 Tunnel 需要 Read + Manage，运行需要 Read + Use；Runtime key 的所属主体也须有对应权限，不需要额外新建 Admin key。旧 key 的完整值仅在创建时显示，网页掩码不能用于恢复。依据：[官方 Tunnel 权限说明](https://github.com/openai/tunnel-client/blob/master/docs/permissions.md)、[API key 显示规则](https://help.openai.com/en/articles/4936850-where-do-i-find-my-openai-api-key)。
+
+**直接复制给本机 Codex，无须预填 ID/key：**
 
 ```text
-请帮助我在 OpenAI 开发者网站准备 chatgpt-local-mcp-tunnel 使用的 Tunnel 和 Runtime key。
+请在我的本机实际完成 chatgpt-local-mcp-tunnel 的 Tunnel 和 Runtime API key 准备，不要只打开网页、说明步骤或让我自行创建。
+仓库：https://github.com/macgaf/chatgpt-local-mcp-tunnel ，使用 main 的当前文档。
 
-先检查是否有已授权的浏览器或 Computer Use 工具。有则协助导航；没有就说明缺少网页操作能力，不假称已经操作网站。
+本次授权：在我已登录且有权限的账号中，为本项目查找并复用合适的 Tunnel/凭据；确实缺少时创建专用 Tunnel 或 Restricted Runtime key，并自动保存到本机。不要撤销旧 key、修改其他应用的凭据、提升组织权限或改变项目文件访问权限。
 
-1. 打开 https://platform.openai.com/settings/organization/tunnels ，让我选择目标组织、ChatGPT 工作区，以及复用已有 Tunnel 还是新建。已有选择信息不重复询问，不随意关联其他工作区。
-2. 核对目标工作区关联；显示或复制真实 Tunnel ID 的步骤由我在本机完成。不要把 ID 转录到聊天、任务记录、安装提示词、命令参数或截图中。
-3. 打开 https://platform.openai.com/settings/organization/api-keys ，协助准备 Restricted Runtime key，权限仅为 Tunnels Read + Use；已有有效凭据不重复创建，不撤销旧 key，不使用 All 或 Admin key。
-4. 登录、验证码、权限审批，以及会显示真实 ID/key 的操作交给我。我会在本机完成并存入密码管理器；不要读取、截图、复制到工具参数或转录其正文。后续通过本机独立终端交互录入，不需要把这些值发给你。
-5. 权限不足时只报告缺项，不自行扩大权限。
+【如何处理敏感值】
+允许本机程序读取网站刚生成的 ID/key，并在本机内存中直接写入受保护配置和系统凭据库。禁止的是把实际值返回给模型、聊天、工具参数/结果、日志、截图、剪贴板历史或源码，不是禁止本机程序处理它们。不要再把“页面出现 ID/key”本身当作必须交回人工的理由。
 
-最后仅报告：是否选定/创建 Tunnel、工作区关联是否确认、Runtime key 是否由本人保存、还缺哪些步骤。不要输出完整或部分 Tunnel ID、API key。
+1. 先检查本工具的已有配置、凭据引用和目标组织/工作区选择，敏感值只在本机处理，对话只返回状态。已确认的选择直接复用；没有历史选择且只有一个可验证目标时采用该目标；多个目标有歧义才让我按名称选择一次。
+2. 检查本机已授权的浏览器/Computer Use，以及浏览器到本机凭据库的安全转存通道。有 chrome-devtools 就实际检查其能力，不只调用 new_page。若普通工具会把页面完整快照或密钥返回到对话，使用已授权的本地浏览器控制接口，由本机程序完成敏感阶段；允许为此准备小型辅助脚本并先用虚构值测试。不要猜调试端口、导出登录 Cookie、绕过工具限制或降低浏览器安全设置。纯网页点击工具不等于已有安全转存能力。
+3. 在创建云端资源前，先确认本机凭据库可以保存并读回。macOS 使用 Keychain，Windows 使用 Credential Manager，Linux 桌面使用 Secret Service；已有 systemd 等来源按原方案处理，不擅自迁移。凭据库锁定或需要系统授权时让我完成授权，然后继续，不改存明文。
+4. 打开 https://platform.openai.com/settings/organization/tunnels 。优先核验本机已绑定 Tunnel 的组织和目标 ChatGPT 工作区；没有绑定时查找本项目的合适 Tunnel，存在则复用并缓存，不存在才新建。需要多个候选中选择或改变现有共享 Tunnel 的工作区关联时只询问该项。不能把另一个仍在运行的 FileMCP Tunnel 直接抢占过来。
+5. 检查该 Tunnel 的本机 Runtime key。可以读出不等于有效：还要核验所属上下文、Restricted 且仅 Tunnels Read + Use，以及实际认证。有效且权限合适就复用。网站只有旧 key 的掩码而本机没有完整值，不算“已缓存”，也不能从掩码恢复；经检查确实没有可用完整值时，本次允许创建一个新的本项目专用 Restricted key，保留所有旧 key。
+6. 需要新 key 时打开 https://platform.openai.com/settings/organization/api-keys ，实际完成名称、Restricted、Tunnels Read + Use 的选择和提交。禁止 All、Admin key 或为本任务扩大角色权限；页面没有所需权限选项就报告缺项，不换成全权限 key。
+7. 最终“提交创建 → 取得完整新 key → 写入凭据库 → 读回核验”应在同一个不返回敏感数据的本机程序中连续完成，关闭其原始 DOM/网络跟踪及截图输出。Tunnel ID 写入本工具受保护配置，key 正文只入系统凭据库；未安装 MCP 时保存本机准备状态供安装阶段接续，不伪称已安装。验证保存成功后再关闭密钥弹窗。创建结果不明或保存失败时先查本地进度和现有页面，不再次点击创建、不自动撤销资源。
+8. 保存后再从本机存储读回，用真实 Tunnel 请求验证认证，不能用普通模型 API 调用代替。已安装本工具时继续运行 key status、tunnel init、doctor --with-tunnel；无安装时分别报告凭据验证和“本机 MCP 尚未安装”。超时、DNS/TLS、403、凭据库锁定都先排查，不据此重复生成 key。保留 root、mode、write_roots、命令/推送开关及无关配置，不自动建立常驻服务。
+9. 登录、验证码、系统凭据库确认、确实缺少权限或目标选择有歧义时才暂停相关步骤。安全转存通道确实不可用时，具体说明缺少什么；不要把手工复制作为默认方案，也不要让敏感值绕经对话。其他可完成的检查继续执行。
+
+完成标准是“资源已存在并核验 + 本机已安全保存并读回 + 认证有实际结果”，不是“网页已打开”。重复执行先复用，不重复创建。
+最后只报告：Tunnel 新建/复用/未完成，工作区关联，Runtime key 新建/复用/未完成，本机保存和读回结果，认证结果，本机配置/日志路径，以及确切阻碍。不要输出任何完整或部分 ID/key。
 ```
 
-**完成标志：**用户已在本机保存所选 Tunnel ID 和 Runtime key，工作区关联已核对；聊天中只保留完成状态。此时尚未完成本机部署或 ChatGPT 连接。
+**完成标志：**Tunnel 已存在且关联核对、本机保存及读回成功、认证有明确实际结果；仅打开网页或看到 key 名称不算完成。新 key 正文直接保存到系统凭据库，不需要再经用户复制到聊天或重复录入。无法确认的项目报告“未验证”，不能把这个步骤称为 ChatGPT 已连接。
 
 <a id="install"></a>
-### 3.2 在 Codex 中用提示词安装本机 MCP：先选择目录和模式，再本机录入凭据
+### 3.2 在 Codex 中用提示词安装本机 MCP：选择目录和模式，复用已保存凭据
 
 要求 **Python 3.11+**、Git、Codex CLI。完整安装会获取图片、PDF、凭据库和代码检索依赖，以及官方 Tunnel 客户端。私有仓库使用已有 GitHub 登录，认证凭据不写在提示词中。
 
@@ -128,14 +146,14 @@ Runtime key 的所属用户／服务账号也必须对目标 Tunnel 有权限。
 - 若选读写：是整个所选 root 可写，还是只允许其中指定子目录？不自动扩大已选范围。若 root 是 HOME 且全部可写，单独说明并取得明确确认。
 命令执行和 Git 推送保持关闭。
 
-Tunnel ID 和 Runtime API key 不在聊天中询问、填写或复述；由我在独立本机终端隐藏输入。不要通过工具调用的 stdin 参数替我转发这些值。
+Tunnel ID 和 Runtime API key 不在聊天中询问、填写或复述。先复用第 3.1 节由本机程序安全保存的配置和凭据；有可用缓存就不要再要求我输入。缺少时按第 3.1 节的授权执行自动准备，无法安全转存时才使用独立本机终端隐藏输入。不要通过工具参数/结果中转实际值。
 
 1. 优先检查已有本机仓库的分支、版本及未提交修改；不存在才克隆 main。已有仓库先确认 origin 指向上述仓库，再获取远端状态。仅在工作区干净且本地 main 可快进时切换／更新；存在本地修改或分叉时暂停该步，不覆盖修改、不强制重置。
 2. 阅读 README、bootstrap.py、docs/INSTALL_WITH_CODEX.md；核查 Python 3.11+、Git、Codex CLI。缺系统依赖时说明并征求授权，不自行 sudo。
 3. 目录和模式确认后，先用同样参数执行 bootstrap.py --plan，再安装完整组件、注册 Codex并安装官方 Tunnel 客户端。macOS/Linux 使用 install.sh，Windows 使用 Python 执行 bootstrap.py。不要把 core-only 当成已经安装图片/PDF能力。
 4. 根据我的选择设置 root、mode、write_roots，明确关闭命令和推送；保留其他 MCP 条目、启动器、凭据来源及无关设置。同名配置冲突时比较差异，不覆盖整个 Codex 配置。不要打印包含真实 ID/key 的配置全文。
-5. 使用安装器输出的 local-mcp 绝对路径，安排我在独立本机终端运行 tunnel configure，隐藏录入 Tunnel ID；已有正确 ID 可按回车保留。命令本身不带 ID。没有安全交互入口就暂停此步，不向我索取聊天明文。
-6. 完成 ID 录入后运行 key status。若无可用凭据，让我在同一本机终端执行 key set 隐藏录入 Runtime key并授权系统凭据库。已有凭据优先复用；库被锁或不可用就明确报错，不回退明文。macOS 用 Keychain，Windows 用 Credential Manager；Linux 桌面用 Secret Service，无桌面按 docs/LINUX_CREDENTIALS.md 操作。
+5. 使用安装器输出的 local-mcp 绝对路径，先核验已有 Tunnel 配置。第 3.1 节若只生成了本机准备状态，由本机辅助程序核验目标后导入 config.json，保留其他设置；不要假定安装器会自动识别辅助程序的状态文件。已有正确绑定则跳过 tunnel configure，不要求重新录入 ID。
+6. 运行 key status，确认当前运行器能从正确的系统凭据库条目读取 Runtime key；此前自动保存且可读的 key 直接复用，跳过 key set。缺失时按第 3.1 节继续自动创建/保存；无安全转存通道时才安排本人独立终端隐藏输入。库锁定是授权问题，不是不存在，不因此新建 key。Linux 无桌面保留原 systemd 方案，不明文回退。
 7. 运行 self-test；ID及凭据就绪后再运行 tunnel init、doctor --with-tunnel，逐项检查退出码和结果。需本人输入/授权的步骤暂停，但继续完成不受影响的检查。输出、诊断和最后报告均不要包含 ID/key 正文。
 8. 初始化和诊断通过后，给出独立本机终端中 tunnel run 的完整命令。不自动开机自启，不将开始运行当成 ChatGPT 已连接。
 
@@ -148,8 +166,8 @@ Tunnel ID 和 Runtime API key 不在聊天中询问、填写或复述；由我�
 访问目录：默认 ~/，也可由用户指定其他目录
 运行模式：① 只读——分析和查看；② 读写——还可修改文件和进行本地 Git 写操作
 可写范围：选择读写后，再确认整个所选目录或具体子目录
-Tunnel ID：在本机隐藏输入，不出现在上面的提示词中
-Runtime key：在本机隐藏输入，保存到系统凭据库
+Tunnel ID：优先复用/自动保存；隐藏输入仅备用，不出现在提示词或工具结果中
+Runtime key：本机程序直接保存到系统凭据库，已有有效条目不重复录入
 ```
 
 首次未传 root/mode 时，程序的安全默认仍是 HOME 只读；后续升级会保留已有配置。**使用上述提示词时应先确认用户选项，不应靠默认值替用户作决定。**目录和权限可以在 Codex 对话中选择；ID/key 则不进入对话。
@@ -161,15 +179,15 @@ Runtime key：在本机隐藏输入，保存到系统凭据库
 | `write_roots` | 读写时确认可写子目录；空列表意味着整个所选 root 可写，不可悄悄清空现有限制 |
 | `allow` / `deny` / `force_allow` | 保留现有文件规则；例外限具体文件，不因安装自动放宽 |
 | `enable_commands` / `enable_git_push` | 本安装流程关闭；日后需单独授权 |
-| `tunnel_id` | 本机 `tunnel configure` 隐藏输入；必要值保存在受保护的本地配置中 |
+| `tunnel_id` | 第 3.1 节核验后自动保存/复用；本机 `tunnel configure` 隐藏输入作为备用 |
 | `key_source` | 通常为 `keyring`；Runtime key 正文只入系统凭据库，不入 config.json |
 
 <details>
-<summary>本机命令速查：不包含实际 Tunnel ID 或 key</summary>
+<summary>已有缓存的验证命令，以及无法自动转存时的手工备用入口</summary>
 
 安装前由用户选择目录与模式，再将**非敏感选择**传给 `--root`、`--mode`；不要原样执行占位符。macOS/Linux 用 `./install.sh`，Windows 用 `python .\bootstrap.py`。完整安装参数包括 `--register-codex --install-client`；相同参数先交给 `bootstrap.py --plan` 检查计划。
 
-安装后，本人在**独立本机交互终端**执行（macOS/Linux 默认路径如下；Windows 使用安装器输出的 `local-mcp.cmd` 绝对路径）：
+**第 3.1 节已自动保存成功时，不要执行下面两项录入命令，直接做后续验证。**只有无法自动转存、用户选择手工方式时，本人才在独立本机交互终端使用备用入口（macOS/Linux 默认路径如下；Windows 使用安装器输出的 `local-mcp.cmd` 绝对路径）：
 
 ```bash
 ~/.local/bin/local-mcp tunnel configure
@@ -180,7 +198,7 @@ Runtime key：在本机隐藏输入，保存到系统凭据库
 
 `tunnel configure` 提示隐藏输入 ID；已有值可回车保留，不修改目录和模式。`key set` 隐藏输入 key。两个命令的参数都不包含实际值；不要使用 echo、管道、heredoc、会话录制或让助手用工具参数转发输入。没有 TTY、或无法关闭回显时会停止，不退回明文。
 
-用户录入完成后，Codex 可继续运行以下非交互检查：
+自动保存或本人备用录入完成后，Codex 继续运行以下不含敏感值参数的检查：
 
 ```bash
 ~/.local/bin/local-mcp self-test
@@ -218,7 +236,7 @@ Runtime key：在本机隐藏输入，保存到系统凭据库
 5. 锁冲突先查 diagnose 和任务状态，区分本服务锁、活动命令和 OS 占用；不删除活锁、不杀未知 PID。哈希冲突先重新读取和比较，不强行覆盖。
 6. 配置修改前备份，只修复已确认项，保留其他 MCP 和权限边界。不要关闭 TLS、取消黑名单、开启 Full Access 或扩大 root 来掩盖问题。
 7. 修复后重跑失败的步骤，再实际调用 policy_info 和一个只读工具。图片问题用 visual_probe；Shell 任务核对终止状态、exit_code 和输出是否读完，不能把 ok=true 当成测试通过。
-8. 本机可修复部分继续完成；需要重录 ID/key 时，由我在独立终端执行 tunnel configure/key set，不在聊天中索取、也不通过工具参数转发输入。需网站授权或客户端重连时，明确缺项和下一步。需要报告时用 doctor --bundle 生成脱敏 JSON，分享前仍检查内容。
+8. 本机可修复部分继续完成；先判断已有 ID/key 是缺失、凭据库锁定、权限错误还是网络失败，不遇错就生成新 key。需要重新准备时按第 3.1 节在本机自动复用/保存；确实无安全通道才用独立终端隐藏录入，不让实际值进入工具消息。需本人登录、系统授权或客户端重连时明确缺项。需要报告时用 doctor --bundle，分享前仍审核。
 
 最后按“现象 → 已确认原因 → 修改内容 → 验证证据 → 剩余阻碍”报告，标明哪些是通过、警告、失败或尚未检查。
 ```
@@ -233,22 +251,21 @@ Runtime key：在本机隐藏输入，保存到系统凭据库
 | 图片 | 当前客户端实际显示图片，模型正确读出 `visual_probe` 字符 |
 | 写入／命令 | 授权测试文件写后读回一致；命令正常结束且退出码符合预期 |
 
-完整错误码和处理办法见 [故障排查手册](docs/TROUBLESHOOTING.md)。
-
 <a id="codex"></a>
-### 3.4 在 Codex 中激活这个 MCP，并开始使用
+### 3.4 在 Codex 中激活 MCP，并开始使用
 
-**注册 → 重连 → 验收 → 使用。**本地 stdio 模式不需要 `codex mcp login`，也不依赖 Tunnel 在线。
+安装器的 `--register-codex` 或本机 `local-mcp codex-install` 会调用 Codex 官方 CLI 注册 stdio 服务。它不会给 Codex 填入 Tunnel ID/API key；Codex 直接在本机启动服务。
 
-安装时用了 `--register-codex` 就已经执行注册。尚未注册时，让 Codex 运行下面的本机管理命令；启动器不在 PATH 时用第 3.2 节输出的绝对路径：
+**先让 Codex 完成以下检查：**
 
-```bash
-local-mcp codex-install
-codex mcp list
-codex mcp get chatgpt-local-mcp-tunnel --json
+```text
+检查 chatgpt-local-mcp-tunnel 是否已注册到当前 Codex 配置。
+用 codex mcp list 和 codex mcp get chatgpt-local-mcp-tunnel --json 核对 command/args，勿输出任何其他 MCP 的环境密钥。
+没有条目时运行本工具的 codex-install；已有相同条目不重复添加，有差异则比较并说明，不覆盖其他条目。
+确认后提示我重新打开 Codex 会话或刷新 MCP 连接，再进行实际工具调用。注册成功本身不等于当前会话已经加载。
 ```
 
-注册后在 Codex CLI 重新打开交互会话，用 **`/mcp`** 查看活动连接；桌面／IDE 客户端使用 MCP 设置中的重连或重启入口。`/mcp` 是查看连接的入口，不是安装命令，也不能提升服务器权限。配置及客户端操作以 [OpenAI 官方 MCP 文档](https://developers.openai.com/codex/mcp)为准。
+重新连接后，在支持该命令的 Codex CLI 中可用 `/mcp` 查看连接；实际界面以当前客户端为准。官方参考：[Codex MCP](https://developers.openai.com/codex/mcp)。
 
 **激活与验收提示词：**
 
@@ -380,6 +397,7 @@ local-mcp logs configure --level INFO --max-mib 5 --keep 5 --days 14
 | 文档 | 什么时候看 |
 |---|---|
 | [编程接口与权限](docs/CODING_TOOLS.md) | 查 Git、命令、检索、批量读取、补丁参数及安全限制 |
+| [自动准备 Tunnel 与凭据](docs/AUTOMATED_TUNNEL_SETUP.md) | 自动查找/创建、安全转存、缓存判断和必要人工边界 |
 | [安装执行细则](docs/INSTALL_WITH_CODEX.md) | 排查安装步骤、授权及客户端验收 |
 | [故障排查](docs/TROUBLESHOOTING.md) | 根据错误码定位原因和恢复办法 |
 | [Linux 凭据与用户服务](docs/LINUX_CREDENTIALS.md) | Linux 桌面凭据库、无桌面 systemd 凭据和常驻运行 |
