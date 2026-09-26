@@ -4,7 +4,7 @@
 
 版本：**v0.4.0** · 安装分支：**`main`** · 支持 macOS / Windows / Linux · 默认 HOME 只读
 
-[这是什么](#what) · [主要能力](#capabilities) · [配置网站](#platform) · [本机安装](#install) · [故障排查](#troubleshooting) · [Codex 激活与示例](#codex) · [ChatGPT 激活与示例](#chatgpt) · [日志](#logs) · [更新与升级](#upgrade)
+[这是什么](#what) · [主要能力](#capabilities) · [配置网站](#platform) · [本机安装](#install) · [连接 ChatGPT](#connect-chatgpt) · [故障排查](#troubleshooting) · [Codex 激活与示例](#codex) · [ChatGPT 激活与示例](#chatgpt) · [日志](#logs) · [更新与升级](#upgrade)
 
 <a id="what"></a>
 ## 1. 这是什么？解决什么问题？
@@ -73,7 +73,7 @@ ChatGPT 聊天窗口 → OpenAI Secure MCP Tunnel → 本机 MCP → 你授权�
 
 **下面的安装和排错提示词发给运行在你本机、具备终端权限的 Codex。** 首次安装不需要先启用本 MCP，直接使用 Codex 已有的本机工具。网站操作还需要当前 Codex 已启用并获授权的浏览器或 Computer Use；仅有 CLI 不代表具备网页点击能力。
 
-完整使用顺序：**检查已有配置与凭据 → 缺失时准备网站资源并安全保存 → 本机安装接续缓存 → 诊断 → Codex 本地验收 → ChatGPT 连接使用**。已有安装先复用，不必为了按章节顺序操作而重建资源；只在 Codex 本地使用时，可跳过网站和 Tunnel 步骤。
+完整使用顺序：**检查已有配置与凭据 → 缺失时准备网站资源并安全保存 → 本机安装接续缓存 → 诊断 → 启动 Tunnel → ChatGPT App 绑定与实测 → 开始使用**。Codex 本地直连按第 3.4 节另行验收。已有安装先复用，不必为了按章节顺序操作而重建资源；只在 Codex 本地使用时，可跳过网站和 Tunnel 步骤。
 
 <a id="platform"></a>
 ### 3.1 在 Codex 中自动准备 Tunnel 和 Runtime key：已有则复用，缺少才创建
@@ -178,7 +178,7 @@ Tunnel ID 和 Runtime API key 不在聊天中询问、填写或复述。先复�
 7. 运行 self-test；ID及凭据就绪后再运行 tunnel init、doctor --with-tunnel，逐项检查退出码和结果。需本人输入/授权的步骤暂停，但继续完成不受影响的检查。输出、诊断和最后报告均不要包含 ID/key 正文。
 8. 初始化和诊断通过后，给出独立本机终端中 tunnel run 的完整命令。不自动开机自启，不将开始运行当成 ChatGPT 已连接。
 
-最后报告：版本、启动器和配置路径、实际 root/mode/write_roots/开关、Codex注册结果、Tunnel是否已配置及诊断结果，以及第3.4、3.5节尚待完成的验收。ID/key只报告状态，不显示正文或尾号。
+最后报告：版本、启动器和配置路径、实际 root/mode/write_roots/开关、Codex注册结果、Tunnel是否已配置及诊断结果，以及第3.2.1节 ChatGPT 接续、第3.4节 Codex 本地连接尚待完成的验收。ID/key只报告状态，不显示正文或尾号。
 ```
 
 **选择方式示意（这不是已授权配置）：**
@@ -238,6 +238,28 @@ Runtime key：本机程序直接保存到系统凭据库，已有有效条目不
 旧的 `configure --tunnel-id` 参数保留兼容，但不用于本文的人机交互安装流程。开启命令／推送属于额外授权，见 [编程工具说明](docs/CODING_TOOLS.md)。
 
 </details>
+
+<a id="connect-chatgpt"></a>
+#### 3.2.1 安装后接续：连接 ChatGPT 并验收
+
+安装与诊断完成后，将下面的提示词继续发给具备本机执行和浏览器操作能力的 Codex。顺序是：**启动 Tunnel → 创建或复用 ChatGPT App → 实际调用验收**；工具扫描需要 Tunnel 在线。普通操作一次授权，平台或宿主要求本人确认的步骤仍由本人完成。
+
+```text
+请接续刚完成的安装，将 chatgpt-local-mcp-tunnel 接入 ChatGPT 并验证可用。
+
+我授权你启动本项目 Tunnel，使用浏览器在当前 ChatGPT 账号和工作区创建或复用本项目 App、绑定已有 Tunnel，并发送只读测试请求。沿用已经确认的配置和权限，不重复询问，不创建新的 Tunnel 或 key，不配置开机自启。
+
+请连续完成：
+1. 复用已有健康进程，或启动 Tunnel 并保持运行，确保本次任务结束后仍在线。
+2. 在 ChatGPT 中创建或复用 chatgpt-local-mcp-tunnel App，必要时启用 Developer Mode，选择已有 Tunnel，完成工具扫描。
+3. 新建聊天并选中该 App，实际调用 policy_info 和 list_directory，确认连接成功。
+
+普通操作直接完成；只有账号或工作区不明确、登录验证码、必须本人确认的授权，或需要扩大权限时才暂停询问。不要在聊天中展示凭据。
+
+最后简要报告连接和实测结果，给出停止及下次启动的方法。未完成则说明具体卡在哪一步。
+```
+
+已完成本节时，无须在第 3.5 节重复创建 App；直接选用已有 App 开始任务。此提示词是接续操作流程，不代表安装器会自动启动 Tunnel 或创建 App，也不代表已经完成实机验收。
 
 <a id="troubleshooting"></a>
 ### 3.3 在本地用提示词排查故障
@@ -329,7 +351,7 @@ Runtime key：本机程序直接保存到系统凭据库，已有有效条目不
 <a id="chatgpt"></a>
 ### 3.5 在 ChatGPT 聊天窗口使用：最终目标
 
-本机验收之后，完成 ChatGPT 这一端的连接：
+已完成[第 3.2.1 节的接续提示词](#connect-chatgpt)时，保持 Tunnel 在线并直接选用已有 App。以下为手工连接步骤，首次连接才需要创建 App：
 
 1. 在独立本机终端运行 `local-mcp tunnel run`，保持在线。
 2. 在 ChatGPT 当前账号／工作区启用 Developer Mode，进入 **Plugins / Apps** 创建开发者 App，名称建议同样用 `chatgpt-local-mcp-tunnel`。
