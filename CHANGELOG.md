@@ -1,6 +1,8 @@
 # Changelog
 
-## v0.4.1 分支操作与能力诊断 — 2026-09-27（候选修复）
+## v0.4.1 分支操作与能力诊断 — 2026-09-27
+
+- 已通过 PR #3 合并至 main（`2bb42104b5091a68d1b31f6954ed157db1f299aa`），并完成本次授权机器的安装和服务重启；客户端新增工具目录刷新仍需单独完成，详见 docs/DEPLOYMENT_20260927.md。
 
 - 新增 git_branches / git_create_branch / git_switch_branch；分支创建和切换不依赖 Shell，不提供 force/reset/远端猜测。
 - 普通仓库支持经安全检查的 extensions.worktreeConfig 和 config.worktree；保留 include/filter/凭据、链接、裸仓库、外部对象库等限制，linked worktree gitfile 仍未支持。

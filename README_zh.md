@@ -2,9 +2,9 @@
 
 **让 ChatGPT 直接分析和修改你的本地项目。**
 
-代码版本：**v0.4.1（候选修复）** · 稳定安装分支：**`main`** · 支持 macOS / Windows / Linux · 默认 HOME 只读
+代码版本：**v0.4.1** · 安装分支：**`main`** · 支持 macOS / Windows / Linux · 默认 HOME 只读
 
-本分支新增受控分支操作与能力诊断，修复普通仓库的 `extensions.worktreeConfig` 兼容；见 [修复范围与限制](docs/GIT_CAPABILITIES.md)。候选分支 `fix/git-capabilities-20260927` 未合并前，不代表 main 或本机运行实例已更新。
+v0.4.1 的受控分支操作、工作树配置兼容和能力诊断已通过 PR #3 合并至 main；见 [修复范围与限制](docs/GIT_CAPABILITIES.md)。本次已完成授权机器的重新安装和 Tunnel 重启，实测范围与仍需刷新的客户端工具目录见 [部署验收记录](docs/DEPLOYMENT_20260927.md)；这不代表其他机器自动升级。
 
 [这是什么](#what) · [主要能力](#capabilities) · [配置网站](#platform) · [本机安装](#install) · [连接 ChatGPT](#connect-chatgpt) · [故障排查](#troubleshooting) · [Codex 激活与示例](#codex) · [ChatGPT 激活与示例](#chatgpt) · [日志](#logs) · [更新与升级](#upgrade)
 
@@ -423,7 +423,7 @@ local-mcp logs configure --level INFO --max-mib 5 --keep 5 --days 14
 <a id="upgrade"></a>
 ### 3.7 更新到 main 并升级本机安装
 
-**拉取源码不等于升级已安装的 MCP。** 安装器使用版本化安装目录；更新本机仓库后，还需重新执行安装器，并重启由你管理的 MCP／Tunnel 实例。版本号仍为 `0.4.0`，仅凭 `--version` 不能区分早期源码和包含交互安装、日志的主线源码；请同时记录安装所用的 Git 提交。
+**拉取源码不等于升级已安装的 MCP。** 安装器使用版本化安装目录；更新本机仓库后，还需重新执行安装器，并重启由你管理的 MCP／Tunnel 实例。当前版本为 `0.4.1`；早期 `0.4.0` 曾有同版本修订，因此仍应同时记录安装所用的 Git 提交和实际运行实例。
 
 **复制给本机 Codex：**
 

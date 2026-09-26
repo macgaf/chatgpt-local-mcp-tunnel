@@ -1,6 +1,6 @@
-# v0.4.1 分支操作与能力诊断（候选修复）
+# v0.4.1 分支操作与能力诊断
 
-本修复对应 `fix/git-capabilities-20260927`。提交/推送不等于合并、安装、重启或 ChatGPT 工具刷新；实际验证范围见 [TEST_REPORT](../TEST_REPORT.md)。默认安装来源仍为 main，未合并前不得把候选功能描述为 main 已部署。
+本修复已通过 PR #3 合并到 main，保留 `fix/git-capabilities-20260927` 开发分支。代码测试见 [TEST_REPORT](../TEST_REPORT.md)，本次授权机器的安装和重启证据见 [部署验收记录](DEPLOYMENT_20260927.md)。合并、安装、服务重启与 ChatGPT 工具刷新仍是不同步骤。
 
 ## 修复范围
 
