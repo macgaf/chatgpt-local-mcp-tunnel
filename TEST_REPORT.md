@@ -20,6 +20,12 @@
 1. README.md 与 README_zh.md 的第 3.1 节在基线提交中已经不同。按 docs/prompts/setup-with-computer.txt 正式入口同步两份说明，保留后续自启说明及敏感值不经工具参数转发要求；对应测试复测通过。这是文档同步，不是实际扩大账号或 MCP 权限。
 2. `tests/test_service.py::test_crossprocess_lock_and_stale_recovery` 的锁断言通过，但其合成子进程在 `terminate()/wait(5)` 阶段超时。只读检查确认 FileMCP 启动的进程继承了包含 SIGTERM 的阻塞信号集。没有绕过宿主拒绝去修改信号设置，也没有削弱或删除该测试；本机复测显式 deselect 此一项。独立 GitHub Actions 仍执行原样完整集合，结论须以本修复提交的实际结果为准。
 
+## 最后边界复核补充
+
+首次代码提交为 `7b3d8460cc123c1fa1def4ca45c7075f7d663478`。之后在合成仓库中确认 core.worktree 的同目标符号链接别名仍可通过，于是增加规范化路径与真实路径双重一致检查，并拒绝任何链接路径组件；没有仅因最终 resolve 相同而接受可变别名。
+
+补充两个别名回归案例后，执行 `pytest -q tests/test_git_capabilities.py -k worktree`，结果 **25 passed、48 deselected in 23.55s**，退出码 0。这是针对性复测，不与上表重叠用例相加，也不冒充完整集合。最终远端验证必须检查包含此收紧修复的新提交，不能把前一提交的 CI 当作最终版本结果。
+
 ## 覆盖的安全边界
 
 关闭 Shell 时创建和切换分支；分支名/HEAD 预期检查；拒绝脏工作区、未跟踪受保护文件、现有锁、未完成 Git 操作、隐藏修改的索引标记和子模块索引；保护忽略文件及其他工作树占用的分支；目标检出路径策略、符号链接/gitlink/超大对象拒绝；hooks 不执行。

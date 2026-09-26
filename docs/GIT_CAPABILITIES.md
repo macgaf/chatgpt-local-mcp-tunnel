@@ -28,7 +28,7 @@ v0.4.1 新增三个受控工具：
 
 支持普通仓库的 `.git/config` 中启用 `extensions.worktreeConfig`，并安全解析同目录 `config.worktree`。两份配置均从非仓库目录使用 `git config --file ... --no-includes` 检查，之后才运行仓库 Git 操作。按 Git 的布尔语义识别开关；开启时合并工作树配置，关闭时不应用其值，但仍审查已经存在的配置文件。
 
-配置必须是有界普通文件，拒绝符号链接、硬链接和特殊文件。继续拒绝外部 include、filter、credential helper、HTTP 凭据路径、SSH 命令、部分克隆等危险配置。`config.worktree` 内的 `core.worktree` 只有解析后恰好等于当前授权仓库时才允许；不允许裸仓库，也不改写用户配置。配置错误不回显可能含敏感值的 Git 解析原文。
+配置必须是有界普通文件，拒绝符号链接、硬链接和特殊文件。继续拒绝外部 include、filter、credential helper、HTTP 凭据路径、SSH 命令、部分克隆等危险配置。`config.worktree` 内的 `core.worktree` 只有规范化路径和解析后的路径都恰好等于当前授权仓库、且路径组件无链接时才允许；不允许裸仓库，也不改写用户配置。配置错误不回显可能含敏感值的 Git 解析原文。
 
 **仍不支持** `.git` 为重定向文件的 linked worktree、子模块 gitfile、外部 common dir 和 alternates；这些返回 `UNSUPPORTED_GIT_LAYOUT` 或对应元数据错误。此修复不是“支持所有 worktree 布局”，不以放宽安全边界换取兼容。
 

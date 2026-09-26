@@ -164,7 +164,14 @@ class GitTools(BranchActions):
             if k=='core.worktree':
                 candidate=Path(value)
                 if not candidate.is_absolute():candidate=repo/'.git'/candidate
-                unsafe=not worktree or candidate.resolve()!=repo.resolve()
+                # A same-target symlink alias is still a mutable redirection, not the
+                # canonical worktree. Permit '..' and canonical absolute paths only
+                # when lexical and resolved locations agree and no component is linked.
+                linked=any(p.is_symlink() or getattr(p,'is_junction',lambda:False)()
+                           for p in (candidate,*candidate.parents))
+                unsafe=(not worktree or linked or
+                        Path(os.path.abspath(candidate))!=repo.resolve() or
+                        candidate.resolve()!=repo.resolve())
             if worktree and k.startswith('extensions.'):
                 unsafe=True  # Extensions belong to the common configuration, not the overlay.
             if unsafe:

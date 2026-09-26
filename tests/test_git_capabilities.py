@@ -434,3 +434,27 @@ def test_branch_workflow_real_stdio_offline(space):
     assert cap['git_branch_create_enabled'] and not cap['shell_enabled']
     assert responses[6]['result']['structuredContent']['branch'] == 'main'
     assert svc.git_status()['branch'] == 'main'
+
+
+@pytest.mark.parametrize('alias_style', ['absolute_alias', 'alias_then_parent'])
+def test_worktree_same_target_alias_is_rejected(space, alias_style):
+    root, _, svc = ready(space)
+    raw(root, 'config', '--local', 'extensions.worktreeConfig', 'true')
+    if alias_style == 'absolute_alias':
+        alias = space[0] / 'worktree-alias'
+        target = root
+        value = str(alias)
+    else:
+        target = root / 'nested'
+        target.mkdir()
+        alias = root / 'worktree-alias'
+        value = '../worktree-alias/..'
+    try:
+        alias.symlink_to(target, target_is_directory=True)
+    except OSError:
+        pytest.skip('directory symlink unavailable')
+    config = root / '.git/config.worktree'
+    raw(root, 'config', '--file', str(config), 'core.worktree', value)
+    before = config.read_bytes()
+    fault('UNSAFE_GIT_CONFIG', lambda: svc.git_status())
+    assert config.read_bytes() == before
