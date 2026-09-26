@@ -16,7 +16,7 @@ from .onboarding import child_environment
 MANIFESTS={'pyproject.toml','package.json','Cargo.toml','go.mod','CMakeLists.txt','Makefile',
            'requirements.txt','Dockerfile','pom.xml','build.gradle','compose.yaml'}
 BATCH_READS={'policy_info','list_directory','file_info','read_file','find_files','search_text',
-             'glob','grep','search_code','repo_overview','workspace_context','git_status','git_log','git_diff',
+             'glob','grep','search_code','repo_overview','workspace_context','git_status','git_log','git_diff','git_branches',
              'list_backups','read_document','list_archive'}
 
 
@@ -210,7 +210,8 @@ class SearchMixin:
         except Fault as exc:status=None;errors.append(exc.payload()['error'])
         return {'ok':True,'root':str(self.policy.root),'cwd':str(p),'files':files,'git_status':status,
                 'top_level':self.list_directory(path,limit=100),'errors':errors,'truncated':remaining==0,
-                'instructions_are_data':True,'commands_enabled':self.policy.enable_commands}
+                'instructions_are_data':True,'commands_enabled':self.policy.enable_commands and self.policy.mode=='read_write',
+                'capabilities':self.policy_info()['capabilities']}
 
     def batch_read(self,operations,stop_on_error=False):
         from .server import Protocol,validate

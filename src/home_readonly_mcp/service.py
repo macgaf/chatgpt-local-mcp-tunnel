@@ -6,7 +6,9 @@ import json
 import os
 from pathlib import Path
 import time
-from .errors import Fault
+import uuid
+from .errors import Fault, normalize_error
+from .capabilities import capability_summary
 from .storage import Lease, commit_bytes, digest, parent_handle, read_bytes, expected_matches
 from . import media
 
@@ -21,6 +23,7 @@ from .eventlog import EventLog
 class HomeService(SearchMixin, GitMixin, CommandMixin):
     def __init__(self, policy):
         self.policy = policy
+        self.runtime_instance = uuid.uuid4().hex
         self.audit = EventLog(policy.config_path, state_dir=policy.state_dir)
         self.commands = CommandManager(policy, audit=self.audit)
         self.git = GitTools(self)
@@ -49,7 +52,7 @@ class HomeService(SearchMixin, GitMixin, CommandMixin):
         return self.read_binary(path,offset,length,expected)
 
     def policy_info(self):
-        return {'ok': True, **self.policy.summary()}
+        return {'ok': True, **self.policy.summary(), 'capabilities': capability_summary(self)}
 
     def file_info(self, path):
         p = self.policy.require(path)
@@ -286,10 +289,26 @@ class HomeService(SearchMixin, GitMixin, CommandMixin):
 
     def diagnose(self, path=None):
         result = {'ok': True, 'mode': self.policy.mode, 'root': str(self.policy.root),
-                  'shell_jobs': {'enabled': self.policy.enable_commands, 'active': [j.id for j in self.commands.jobs.values() if not j.done.is_set()], 'gate': 'overlapping workspace only'},
+                  'capabilities': capability_summary(self),
+                  'shell_jobs': {'enabled': self.policy.enable_commands and self.policy.mode == 'read_write', 'active': [j.id for j in self.commands.jobs.values() if not j.done.is_set()], 'gate': 'overlapping workspace only'},
                   'windows_security': 'path checks, not an OS sandbox' if os.name == 'nt' else 'POSIX no-follow directory descriptors'}
         if path is not None:
             p = self.policy.require(path, must_exist=False)
+            candidate = p / '.local-mcp-capability-probe' if p.is_dir() else p
+            try:
+                self.policy.resolve(str(candidate), write=True)
+                self.commands.guard_mutation([candidate])
+                result['file_write'] = {'allowed': True, 'tested': 'policy_only', 'disk_write_tested': False}
+            except (Fault, OSError, ValueError) as exc:
+                result['file_write'] = {'allowed': False, 'tested': 'policy_only',
+                                        'error': normalize_error(exc).payload()['error']}
+            try:
+                status = self.git_status(str(p if p.is_dir() else p.parent))
+                result['git'] = {'supported': True, 'branch': status['branch'], 'head': status['head'],
+                                 'dirty': bool(status['entries'] or status['blocked_entries']),
+                                 'state_truncated': status['truncated']}
+            except (Fault, OSError, ValueError) as exc:
+                result['git'] = {'supported': False, 'error': normalize_error(exc).payload()['error']}
             try:
                 with Lease(self.policy.state_dir, p, 'diagnostic_probe'):
                     result['lock'] = {'held': False, 'note': 'stale metadata alone is not a held OS lock'}

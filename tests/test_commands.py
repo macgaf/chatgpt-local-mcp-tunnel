@@ -133,13 +133,13 @@ def test_descendant_cleanup(space):
 def test_tool_exposure_full_mode_and_open_world(space):
     p,svc=space[2:];p.enable_commands=True;p.enable_git_push=True
     tools=Protocol(svc).specs
-    assert len(tools)==38
+    assert len(tools)==41
     assert tools['run_command']['annotations']['openWorldHint']
     assert not tools['run_command']['annotations']['readOnlyHint']
     assert tools['git_push']['annotations']['openWorldHint']
     assert tools['read_command_output']['annotations']['readOnlyHint']
     p.mode='read_only'
-    assert len(Protocol(svc).specs)==24
+    assert len(Protocol(svc).specs)==25
 
 
 def test_stdio_shutdown_cleans_owned_jobs(space):

@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.4.1 分支操作与能力诊断 — 2026-09-27（候选修复）
+
+- 新增 git_branches / git_create_branch / git_switch_branch；分支创建和切换不依赖 Shell，不提供 force/reset/远端猜测。
+- 普通仓库支持经安全检查的 extensions.worktreeConfig 和 config.worktree；保留 include/filter/凭据、链接、裸仓库、外部对象库等限制，linked worktree gitfile 仍未支持。
+- 分支切换检查干净工作区、进行中的 Git 操作、索引隐藏标记、子模块、受影响路径与目标对象，保护忽略文件并核查最终 HEAD。
+- policy_info / diagnose / workspace_context / CLI doctor 提供分层能力证据；工具注册和诊断共用启用条件，返回目录指纹并明确客户端可见性未验证。
+- 工具数变为只读 25、读写且命令/推送关闭 36、全部显式开启 41。默认权限、运行配置、凭据和用户安装不变。
+- 真实合成 Git 与 stdio 验证记录见 TEST_REPORT.md；源码候选分支同步不代表已合并、部署或完成云端验收。
+
 ## v0.4.0 提示词与 GitHub 同步约定 — 2026-09-26
 
 - 补交电脑工具版完整提示词至 docs/prompts/setup-with-computer.txt，并同步两份 README 第 3.1 节、安装细则、自动准备说明和安装 Skill。

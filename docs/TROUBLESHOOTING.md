@@ -10,6 +10,12 @@ ChatGPT 无法连接时，先检查本项目的运行实例，再排查 App 绑�
 4. 查看 `local-mcp logs show --component tunnel --tail 200`，结合系统服务的脱敏错误信息定位退出原因。区分未启动、路径或依赖错误、凭据不可读、认证/权限失败、网络断连及本机 MCP 启动失败；缺少日志不等于正常。
 5. 只处理已确认属于本项目的实例，不终止未知进程、不抢占 FileMCP 的 Tunnel。修复后重新确认进程、健康/就绪及 ChatGPT 实际调用。未实际重新登录时，标记“重新登录后的自动启动待验证”，不自行注销或重启电脑。
 
+## 文件可写、Git 失败、Shell 关闭必须分别判断
+
+v0.4.1 候选修复在 `policy_info.capabilities` 返回工具目录、数量、指纹、运行实例和独立权限状态，`diagnose(path)` 分别返回文件写策略、Git 状态及锁。详见 [能力诊断](GIT_CAPABILITIES.md)。`write_roots=[]` 不表示没有可写目录；`shell_enabled=false` 不表示文件只读；`UNSUPPORTED_GIT_LAYOUT` 不表示文件不可写。
+
+若服务端报告 36 个工具而 ChatGPT 只发现 25 个，先核对源码/已安装版本、运行实例和连接工具刷新；没有证据不能断言是缓存。服务不能直接观察或修复宿主侧的工具筛选，`client_tool_visibility_verified` 始终为 false。CLI doctor 的能力检查是新诊断实例，不替代真实 Tunnel 上的 `policy_info`。
+
 ## 诊断命令与错误码
 
 先执行 `local-mcp doctor`。需要查认证与网络时执行 `local-mcp doctor --with-tunnel --network`。网络探针是直连 DNS/TLS，代理路线可能不同；以实际 Tunnel doctor 输出为准，不为了“通过”关闭 TLS。
@@ -61,7 +67,13 @@ ChatGPT 无法连接时，先检查本项目的运行实例，再排查 App 绑�
 | COMMAND_CONCURRENCY_LIMIT | 活动任务达到配置上限；不擅自杀其他任务 |
 | PROCESS_ISOLATION_FAILED | Windows 无法分配 Job Object；停止命令，不假称可清理子进程 |
 | UNSAFE_GIT_CONFIG / UNSAFE_GIT_METADATA | 不安全扩展、链接或对象库；本机审核，不能关闭防护强行执行 |
-| UNSUPPORTED_GIT_LAYOUT | 当前要求真实 .git 目录；链接 worktree/submodule gitdir 未支持 |
+| UNSUPPORTED_GIT_LAYOUT | 当前要求非裸仓库真实 .git 目录；安全的 config.worktree 已支持，但 linked worktree/submodule gitdir 未支持 |
+| INVALID_GIT_CONFIG | 配置格式、布尔值或大小不合法；错误不会回显配置值 |
+| INVALID_BRANCH_NAME / GIT_BRANCH_EXISTS / GIT_BRANCH_NOT_FOUND | 只接受安全本地分支名；不覆盖已有分支或猜测远端 |
+| GIT_DIRTY_WORKTREE / GIT_OPERATION_IN_PROGRESS | 先完成已有修改或 Git 操作；不自动 stash/reset/abort |
+| GIT_HEAD_CHANGED / GIT_POSTCONDITION_FAILED | 并发改变了预期状态；核查真实结果，不强制回退 |
+| GIT_INDEX_FLAGS_UNSUPPORTED / GIT_SUBMODULE_UNSUPPORTED | 分支操作拒绝隐藏修改的索引标记及子模块索引 |
+| GIT_CHECKOUT_PATH_DENIED | 目标分支含符号链接、gitlink 或超限对象；不绕过文件策略 |
 | GIT_PATH_DENIED / GIT_LOCKED | 文件权限/策略拒绝，或 Git 自己的锁；不自动删锁 |
 | GIT_PUSH_DISABLED / GIT_REMOTE_NOT_APPROVED | 开关或精确 URL 白名单不足；只在本机审核配置 |
 | GIT_TRANSPORT_DENIED / GIT_IDENTITY_MISSING | 非 HTTPS/SSH、含密码 URL 或缺提交身份；本机配置，不向聊天提供密码 |
@@ -75,7 +87,7 @@ ChatGPT 无法连接时，先检查本项目的运行实例，再排查 App 绑�
 
 FileMCP 原作可能报 `Command session is active; finish or cancel it before file mutations or Git operations`：这通常是原作的活动命令会话门控，不等同于 OS 文件锁。v0.4 提供显式开启的命令会话，但仅对相交 cwd 的修改门控；按目标文件的 OS lease 协调文件写入。不会因项目 A 的任务阻止无关项目 B 写入。
 
-`diagnose(path)` 只探测本服务的锁，未持有的旧元数据不算活锁；文件不删除，避免另一个进程在新 inode 上取得第二把锁。外部 FileMCP 实例和本工具不会共享应用内的锁；同时修改时仍需哈希冲突保护。
+`diagnose(path)` 的锁检查只探测本服务的锁，未持有的旧元数据不算活锁；文件不删除，避免另一个进程在新 inode 上取得第二把锁。外部 FileMCP 实例和本工具不会共享应用内的锁；同时修改时仍需哈希冲突保护。
 
 同一个 Tunnel ID 不应同时启动 FileMCP 和本工具两个 runtime。切换时先明确退出旧客户端；本工具不会擅自杀掉旧客户端。
 

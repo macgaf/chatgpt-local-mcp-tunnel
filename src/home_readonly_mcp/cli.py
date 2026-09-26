@@ -43,6 +43,7 @@ def self_test():
             {'jsonrpc':'2.0','id':5,'method':'server/discover','params':{'_meta':{
                 'io.modelcontextprotocol/protocolVersion':'2026-07-28',
                 'io.modelcontextprotocol/clientCapabilities':{}}}},
+            {'jsonrpc':'2.0','id':6,'method':'tools/call','params':{'name':'policy_info','arguments':{}}},
         ]
         try:
             test_env = child_environment()
@@ -53,16 +54,19 @@ def self_test():
                 env=test_env,timeout=20)
             output = [json.loads(line) for line in proc.stdout.splitlines()]
             by_id = {m['id']:m for m in output}
-            assert proc.returncode == 0 and len(output)==5
+            assert proc.returncode == 0 and len(output)==6
             assert by_id[3]['result']['structuredContent']['sha256']==digest(content)
             assert 'error' in by_id[4] and not (workspace/'should-not-exist').exists()
             assert by_id[5]['result']['resultType']=='complete'
             assert all(t['annotations']['readOnlyHint'] for t in by_id[2]['result']['tools'])
+            advertised=by_id[6]['result']['structuredContent']['capabilities']
+            assert advertised['tool_names']==sorted(t['name'] for t in by_id[2]['result']['tools'])
+            assert not advertised['file_write_enabled'] and not advertised['shell_enabled']
         except Exception as exc:
             raise Fault('MCP_SELF_TEST_FAILED','真实 stdio 子进程自检失败。',type(exc).__name__,
                         '检查 Python 安装和程序完整性；不要继续连接 Tunnel。') from exc
     return {'ok':True,'test':'real_stdio_process','legacy_handshake':True,'modern_discovery':True,
-            'read_roundtrip':True,'write_hidden_in_readonly':True,
+            'read_roundtrip':True,'write_hidden_in_readonly':True,'capability_catalog_consistent':True,
             'cloud_tunnel_tested':False,'chatgpt_image_consumption_tested':False}
 
 
@@ -81,6 +85,15 @@ def doctor(config_path, with_tunnel=False, network=False):
     logging_status = audit.probe()
     checks.append({'name':'logging','status':'pass' if logging_status['ok'] and logging_status['enabled'] else 'warning' if not logging_status['enabled'] else 'fail', 'details':logging_status})
     check('configuration',lambda:Policy.from_file(config_path).summary())
+    def local_capabilities():
+        from .service import HomeService
+        service = HomeService(Policy.from_file(config_path))
+        try:
+            return {**service.policy_info()['capabilities'],
+                    'evidence_source':'new_cli_diagnostic_instance_not_running_tunnel'}
+        finally:
+            service.close()
+    check('tool_capabilities',local_capabilities)
     check('stdio_handshake',self_test)
     for package in ('PIL','pypdfium2','keyring'):
         found = importlib.util.find_spec(package) is not None

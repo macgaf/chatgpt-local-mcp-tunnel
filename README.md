@@ -2,7 +2,9 @@
 
 **让 ChatGPT 直接分析和修改你的本地项目。**
 
-版本：**v0.4.0** · 安装分支：**`main`** · 支持 macOS / Windows / Linux · 默认 HOME 只读
+代码版本：**v0.4.1（候选修复）** · 稳定安装分支：**`main`** · 支持 macOS / Windows / Linux · 默认 HOME 只读
+
+本分支新增受控分支操作与能力诊断，修复普通仓库的 `extensions.worktreeConfig` 兼容；见 [修复范围与限制](docs/GIT_CAPABILITIES.md)。候选分支 `fix/git-capabilities-20260927` 未合并前，不代表 main 或本机运行实例已更新。
 
 [这是什么](#what) · [主要能力](#capabilities) · [配置网站](#platform) · [本机安装](#install) · [连接 ChatGPT](#connect-chatgpt) · [故障排查](#troubleshooting) · [Codex 激活与示例](#codex) · [ChatGPT 激活与示例](#chatgpt) · [日志](#logs) · [更新与升级](#upgrade)
 
@@ -22,7 +24,7 @@ ChatGPT 聊天窗口 → OpenAI Secure MCP Tunnel → 本机 MCP → 你授权�
 <a id="capabilities"></a>
 ## 2. 主要能力：完整 MCP 工具列表
 
-最多 **38 个工具**。只读模式提供 **24 个**；读写模式、命令和推送均关闭时提供 **33 个**；另行开启命令增加 4 个，开启推送再增加 1 个。以下“读取”表示只读模式即可使用；“读写”表示必须设置 `mode=read_write`。
+最多 **41 个工具**。只读模式提供 **25 个**；读写模式、命令和推送均关闭时提供 **36 个**；另行开启命令增加 4 个，开启推送再增加 1 个。以下“读取”表示只读模式即可使用；“读写”表示必须设置 `mode=read_write`。
 
 | 分类 | MCP 工具 | 能做什么 | 所需模式 |
 |---|---|---|---|
@@ -54,6 +56,9 @@ ChatGPT 聊天窗口 → OpenAI Secure MCP Tunnel → 本机 MCP → 你授权�
 | Git | `git_status` | 查看工作区和暂存区状态 | 读取 |
 | Git | `git_log` | 查看提交历史 | 读取 |
 | Git | `git_diff` | 查看工作区或暂存区差异，可指定路径 | 读取 |
+| Git | `git_branches` | 分页列出本地分支、当前 HEAD | 读取 |
+| Git | `git_create_branch` | 从当前 HEAD 创建分支，可切换；不依赖 Shell | 读写 |
+| Git | `git_switch_branch` | 安全切换已有本地分支，不覆盖已有工作 | 读写 |
 | Git | `git_init` | 初始化普通 Git 仓库 | 读写 |
 | Git | `git_add` | 检查权限后暂存指定文件 | 读写 |
 | Git | `git_commit` | 使用配置的 Git 身份提交已暂存文件 | 读写 |
@@ -65,7 +70,7 @@ ChatGPT 聊天窗口 → OpenAI Secure MCP Tunnel → 本机 MCP → 你授权�
 | 权限诊断 | `policy_info` | 查询实际根目录、读写模式、规则和权限开关 | 读取 |
 | 权限诊断 | `diagnose` | 查询诊断信息，探测指定路径的本服务锁 | 读取 |
 
-配套提供：**三平台安装脚本、Codex 自动注册、系统密钥库、Tunnel 配置、持久日志、分层诊断和脱敏报告**。这些是本机管理功能，不计入 38 个 MCP 工具。
+配套提供：**三平台安装脚本、Codex 自动注册、系统密钥库、Tunnel 配置、持久日志、分层诊断和脱敏报告**。这些是本机管理功能，不计入 41 个 MCP 工具。
 
 开始使用前记住三点：**命令执行和推送默认关闭**；已有文件覆盖需要原 SHA-256；图片必须经客户端实际视觉验收。Shell 开启后不是 OS 沙箱，文件黑名单不能限制任意命令访问其他目录／网络。跨文件补丁是失败后尽力恢复，不是多文件原子事务。`.blend`、视频、点云和 Office 的专用解析器尚未实现，二进制传输也不等于自动进入 ChatGPT 沙箱。详细参数和限制见 [编程工具说明](docs/CODING_TOOLS.md)及[非文本文件说明](docs/MEDIA_PIPELINE.md)。
 
@@ -98,6 +103,8 @@ ChatGPT 聊天窗口 → OpenAI Secure MCP Tunnel → 本机 MCP → 你授权�
 | [Platform → Runtime API keys](https://platform.openai.com/settings/organization/api-keys) | 创建本项目普通 Runtime key，All 权限、Never／永不过期 |
 
 创建／修改 Tunnel 需要 Read + Manage，运行需要 Read + Use；Runtime key 的所属主体也须有对应权限，不需要额外新建 Admin key。旧 key 的完整值仅在创建时显示，网页掩码不能用于恢复。依据：[官方 Tunnel 权限说明](https://github.com/openai/tunnel-client/blob/master/docs/permissions.md)、[API key 显示规则](https://help.openai.com/en/articles/4936850-where-do-i-find-my-openai-api-key)。
+
+真实 ID/key 不通过工具参数转发输入，仅由已授权的本机程序直接保存和验证。
 
 **复制给本机 Codex。** 完整提示词同时保存在 [docs/prompts/setup-with-computer.txt](docs/prompts/setup-with-computer.txt)，与下方内容一致；修改时同步维护，不仅提供聊天附件。
 
