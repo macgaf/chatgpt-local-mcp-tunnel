@@ -1,5 +1,15 @@
 # Repository work rules
 
+## 项目变更与 GitHub 同步
+
+除非用户特别说明，本项目的变更均针对 `macgaf/chatgpt-local-mcp-tunnel`，包括代码、README、提示词、Skill、配置样例及安装、日志、排错说明。应同步修改仓库中的相关文件，而不是只交付聊天内容或下载附件。
+
+交付前检查目标分支与现有修改，完成适用的检查，再提交、推送并读取远端确认。报告实际分支、提交和未完成项；推送失败或尚未执行时，明确写“尚未同步 GitHub”。
+
+文档和代码的发布状态须分别标明。尚未验收的修复继续保留在对应分支或草稿 PR；同步要求不代表自动合并、强制推送、删除分支或更新用户部署。用户明确要求仅讨论或不要提交时按该范围处理。
+
+`docs/prompts/setup-with-computer.txt` 是电脑工具版完整提示词的仓库入口。修改提示词时，同步检查 README、安装指南和 Skill，避免保留互相矛盾的版本。
+
 Read README.md and TEST_REPORT.md before claiming a feature is installed or verified.
 
 Keep the stdio core dependency-free. Optional media and keyring imports must remain lazy and return actionable errors when unavailable.

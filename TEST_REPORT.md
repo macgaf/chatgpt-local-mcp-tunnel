@@ -1,3 +1,15 @@
+# 电脑工具提示词与仓库同步核验（2026-09-26）
+
+本次基于 main 的 24ffe848087410b70eb3dfb2d3f1625bd237757c 补交电脑工具版提示词、更新配套文档，并在 AGENTS.md 记录默认 GitHub 同步约定。只改文档与提示词，未修改运行代码、测试实现、依赖、权限或部署。
+
+通过已授权 FileMCP 在用户 macOS 上的独立文档 worktree 执行，业务测试使用临时 HOME 和合成资源：完整 pytest 为 **217 passed、6 skipped in 34.81s**，退出码 0，已读完输出；跳过为平台专用测试，不算通过。测试启动进程解除自身继承的 SIGTERM/SIGINT 阻塞，不更改宿主或测试断言。
+
+两份 README 内容一致，README 第 3.1 节与 docs/prompts/setup-with-computer.txt 完整提示词一致；58 个相对链接／锚点和 Markdown 代码围栏检查通过，git diff --check 通过。
+
+候选浏览器执行器仍位于 PR #2；本次未将其代码合并到 main，未操作真实 Tunnel/key 或更改本机安装。以上结果不是本次远程 CI 或网站自动化实机验收；旧报告保留原日期与验证范围。
+
+---
+
 # 主线整合核验（2026-09-25）
 
 安装来源统一为 `main`，功能整合记录见 [PR #1](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/1)。本次仅更新文档与合并历史，保留功能分支；没有修改运行时代码、测试、依赖、工作流、版本号或用户本机配置。

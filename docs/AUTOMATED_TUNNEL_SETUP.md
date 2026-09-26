@@ -2,7 +2,9 @@
 
 本页是给**用户本机 Codex**的执行规程，完整提示词在 [README 3.1](../README.md#platform)。目标是实际完成查找、创建、保存和验证，不是只打开网站。
 
-**实现状态：**本项目已有本机配置、native keystore、隐藏输入、Tunnel 初始化和诊断接口；当前没有内置“一键创建 OpenAI 网站资源”的浏览器适配器。这里授权并指导本机 Codex 使用其已经授权的浏览器控制能力，必要时准备并测试小型本地转存脚本。不能把本次文档修订说成浏览器自动化已经实机验收，也不要虚构 `tunnel provision` 等不存在的命令。
+**实现状态与最新入口：**使用 [电脑工具版完整提示词](prompts/setup-with-computer.txt)，与 README 第 3.1 节一致。主线已有配置、native keystore、隐藏输入、Tunnel 初始化和诊断；候选阶段执行器 `tunnel prepare` 位于 [`fix/browser-tunnel-preparation` / PR #2](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/2)，尚未合并且真实网站创建、认证仍待验收。先核对实际代码和 --help，优先复用已有实现，不重新临时发明转存链路，不把主线文档更新当作候选程序已发布。
+
+电脑工具、Chrome 调试连接、Apple Events、终端执行和文件 roots 分别检查；前者不可用不能直接推定后者都不可用。正常机制申请权限后复测，必须本人批准时只暂停该项。创建前验证完整虚构值转存，点击后验证 Restricted、Read/Use 的真实选中状态；点击次数不是成功证据。详细分工、阻塞处理和验收顺序以完整提示词为准。
 
 ## 1. 自动化授权与人工边界
 
