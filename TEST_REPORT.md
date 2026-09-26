@@ -1,3 +1,47 @@
+# v0.4.1 分支接口、工作树配置与能力诊断（2026-09-27）
+
+候选分支：`fix/git-capabilities-20260927`。基于 main 的 `6170439d25b7f4d64e833347aeb99ba0a61c96ac`，在独立工作树修改源码，原 main 不切换、不合并。版本提升至 0.4.1，但本次没有安装、重启在线 MCP/Tunnel，也没有调整 root/mode/write_roots、Shell、推送或凭据设置。
+
+## 本机实际验证
+
+通过已授权 FileMCP 在用户 macOS、Python 3.14.6 环境运行，业务测试使用合成仓库与临时 HOME。
+
+| 验证 | 实际结果 |
+|---|---|
+| 第一版 Git/协议专项测试 | 96 passed，退出码 0；其后又补充了子模块边界与真实 stdio 测试 |
+| 完整 pytest 首轮 | 286 passed、6 skipped、2 failed，退出码 1；没有把失败算作通过 |
+| 修订后的本机回归 | 287 passed、6 skipped、1 deselected，退出码 0，107.57 秒；仅单独排除下述环境受限项，不称为本机完整集合通过 |
+| 真实 CLI stdio self-test | 退出码 0；legacy handshake、modern discovery、读取回环、只读隐藏写工具及 capability_catalog_consistent 均通过 |
+| Python/文档静态检查 | src/tests 全部 Python AST、两份 README 一致性、正式提示词一致性、git diff --check 通过 |
+| 原故障项目只读验证 | 新代码的 git_status 已成功；Git 配置文件读前读后哈希一致，没有修改该项目。该项目当时存在的工作区变更保持原状 |
+
+首轮两个失败的处理：
+
+1. README.md 与 README_zh.md 的第 3.1 节在基线提交中已经不同。按 docs/prompts/setup-with-computer.txt 正式入口同步两份说明，保留后续自启说明及敏感值不经工具参数转发要求；对应测试复测通过。这是文档同步，不是实际扩大账号或 MCP 权限。
+2. `tests/test_service.py::test_crossprocess_lock_and_stale_recovery` 的锁断言通过，但其合成子进程在 `terminate()/wait(5)` 阶段超时。只读检查确认 FileMCP 启动的进程继承了包含 SIGTERM 的阻塞信号集。没有绕过宿主拒绝去修改信号设置，也没有削弱或删除该测试；本机复测显式 deselect 此一项。独立 GitHub Actions 仍执行原样完整集合，结论须以本修复提交的实际结果为准。
+
+## 最后边界复核补充
+
+首次代码提交为 `7b3d8460cc123c1fa1def4ca45c7075f7d663478`。之后在合成仓库中确认 core.worktree 的同目标符号链接别名仍可通过，于是增加规范化路径与真实路径双重一致检查，并拒绝任何链接路径组件；没有仅因最终 resolve 相同而接受可变别名。
+
+补充两个别名回归案例后，执行 `pytest -q tests/test_git_capabilities.py -k worktree`，结果 **25 passed、48 deselected in 23.55s**，退出码 0。这是针对性复测，不与上表重叠用例相加，也不冒充完整集合。最终远端验证必须检查包含此收紧修复的新提交，不能把前一提交的 CI 当作最终版本结果。
+
+## 覆盖的安全边界
+
+关闭 Shell 时创建和切换分支；分支名/HEAD 预期检查；拒绝脏工作区、未跟踪受保护文件、现有锁、未完成 Git 操作、隐藏修改的索引标记和子模块索引；保护忽略文件及其他工作树占用的分支；目标检出路径策略、符号链接/gitlink/超大对象拒绝；hooks 不执行。
+
+普通仓库 extensions.worktreeConfig 的 true/false/数值布尔语义、可选 overlay、提交身份合并、原配置不改写；危险 include/filter/credential/外部 worktree 路径继续拒绝；符号链接/硬链接/FIFO/超限配置拒绝；畸形配置错误不泄露值。
+
+工具目录/指纹与真实注册表一致；只读/读写/命令/推送矩阵；Git 失败与文件写权限分开；batch_read 不接受分支写操作；真实独立 stdio 子进程完成创建/切换分支。
+
+## 尚未验证和明确不支持的事项
+
+本文件初次提交时远端三平台 CI 尚待本提交触发，不沿用历史成功记录；后续结果以相应 commit/run 为证据。真实 Tunnel/ChatGPT 工具目录刷新、用户安装更新、网络推送工具的实机测试不在上述合成测试范围。
+
+`.git` 为 gitdir 重定向文件的 linked worktree / submodule 仍不受新 Git 工具支持；本次解决的是普通仓库的 config.worktree 误拒绝。CLI doctor 的目录摘要是新诊断实例，不冒充在线 Tunnel。详细用法及部署边界见 docs/GIT_CAPABILITIES.md。
+
+---
+
 # 电脑工具提示词与仓库同步核验（2026-09-26）
 
 本次基于 main 的 24ffe848087410b70eb3dfb2d3f1625bd237757c 补交电脑工具版提示词、更新配套文档，并在 AGENTS.md 记录默认 GitHub 同步约定。只改文档与提示词，未修改运行代码、测试实现、依赖、权限或部署。

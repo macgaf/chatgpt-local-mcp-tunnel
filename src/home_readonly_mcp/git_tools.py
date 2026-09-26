@@ -12,12 +12,13 @@ from .errors import Fault, redact
 from .onboarding import child_environment
 from .processes import bounded_run
 from .storage import Lease, private_dir, read_bytes
+from .git_branches import BranchActions
 
-GIT_READS={'git_status','git_log','git_diff'}
-GIT_WRITES={'git_init','git_add','git_commit','git_push'}
+GIT_READS={'git_status','git_log','git_diff','git_branches'}
+GIT_WRITES={'git_init','git_add','git_commit','git_push','git_create_branch','git_switch_branch'}
 
 
-class GitTools:
+class GitTools(BranchActions):
     def __init__(self, service):
         self.service=service
         self.policy=service.policy
@@ -107,7 +108,8 @@ class GitTools:
                 st=p.lstat()
                 if (p.is_symlink() or getattr(p,'is_junction',lambda:False)() or
                     not p.resolve().is_relative_to(gitdir.resolve()) or
-                    (stat.S_ISREG(st.st_mode) and st.st_nlink>1)):
+                    (stat.S_ISREG(st.st_mode) and st.st_nlink>1) or
+                    not (stat.S_ISREG(st.st_mode) or stat.S_ISDIR(st.st_mode))):
                     raise Fault('UNSAFE_GIT_METADATA','Git 元数据包含链接或范围跳转。',name,
                                 '使用不含外部元数据/硬链接的独立仓库。')
         for rel in ('commondir','objects/info/alternates','objects/info/http-alternates'):
@@ -116,23 +118,69 @@ class GitTools:
                 raise Fault('UNSAFE_GIT_METADATA','Git 使用替代对象库或外部 common dir。',rel,
                             '安全模式拒绝读取外部仓库对象。')
         config=gitdir/'config'
-        if not config.is_file() or config.stat().st_size>262144:
-            raise Fault('INVALID_GIT_CONFIG','Git 配置缺失或过大。','config','在本机检查仓库。')
-        # Parse ONLY this config, with include expansion disabled, from a non-repository cwd.
+        values=self._read_config_file(config,repo)
+        enabled=self._config_bool(config,'extensions.worktreeconfig')
+        worktree_config=gitdir/'config.worktree'
+        # Validate the separate file BEFORE any Git command reads repository settings.
+        # Also inspect dormant files; a later config change must not activate unchecked hooks/includes.
+        if worktree_config.exists():
+            extra=self._read_config_file(worktree_config,repo,worktree=True)
+            if enabled:
+                for key,items in extra.items():
+                    values.setdefault(key,[]).extend(items)
+        return values
+
+    def _config_bool(self,path,key):
         control=private_dir(self.policy.state_dir/'git-control')
-        _,data=self.run(control,['config','--file',str(config),'--no-includes','--null','--list'])
+        code,data=self.run(control,['config','--file',str(path),'--no-includes',
+                                    '--type=bool','--get',key],allow_failure=True)
+        if code==1:return False
+        if code or data.strip() not in (b'true',b'false'):
+            raise Fault('INVALID_GIT_CONFIG','Git 配置布尔值无效。',key,
+                        '在本机检查配置；不显示配置值或自动修改。')
+        return data.strip()==b'true'
+
+    def _read_config_file(self,path,repo,worktree=False):
+        try:st=path.lstat()
+        except FileNotFoundError:
+            raise Fault('INVALID_GIT_CONFIG','Git 配置缺失。','config','在本机检查仓库。') from None
+        if not stat.S_ISREG(st.st_mode) or st.st_nlink!=1 or st.st_size>262144:
+            raise Fault('INVALID_GIT_CONFIG','Git 配置不是有界的普通文件。',path.name,
+                        '在本机检查配置；不跟随符号链接、硬链接或特殊文件。')
+        control=private_dir(self.policy.state_dir/'git-control')
+        code,data=self.run(control,['config','--file',str(path),'--no-includes','--null','--list'],
+                           allow_failure=True)
+        if code:
+            raise Fault('INVALID_GIT_CONFIG','Git 配置解析失败。',path.name,
+                        '在本机检查配置语法；不返回可能含敏感信息的解析错误。')
         values={}
         for entry in data.split(b'\0'):
             if not entry:continue
             key,_,value=entry.decode('utf-8','strict').partition('\n')
             k=key.lower();values.setdefault(k,[]).append(value)
             unsafe=(k.startswith(('include.','includeif.','filter.','url.','credential.','http.')) or
-                    k in ('core.worktree','core.sshcommand','core.gitproxy','commit.template',
-                          'extensions.worktreeconfig','extensions.partialclone') or
+                    k in ('core.sshcommand','core.gitproxy','commit.template','extensions.partialclone') or
                     (k.startswith('remote.') and k.endswith(('.uploadpack','.receivepack','.promisor','.vcs'))))
+            if k=='core.worktree':
+                candidate=Path(value)
+                if not candidate.is_absolute():candidate=repo/'.git'/candidate
+                # A same-target symlink alias is still a mutable redirection, not the
+                # canonical worktree. Permit '..' and canonical absolute paths only
+                # when lexical and resolved locations agree and no component is linked.
+                linked=any(p.is_symlink() or getattr(p,'is_junction',lambda:False)()
+                           for p in (candidate,*candidate.parents))
+                unsafe=(not worktree or linked or
+                        Path(os.path.abspath(candidate))!=repo.resolve() or
+                        candidate.resolve()!=repo.resolve())
+            if worktree and k.startswith('extensions.'):
+                unsafe=True  # Extensions belong to the common configuration, not the overlay.
             if unsafe:
                 raise Fault('UNSAFE_GIT_CONFIG','仓库配置含安全模式禁止的扩展/外部调用。',key,
-                            '在本机审核该配置；不会通过 MCP 执行 hook/filter/helper 或包含外部配置。')
+                            '在本机审核该配置；不会执行 hook/filter/helper 或展开外部 include。',
+                            config_file=path.name)
+        if self._config_bool(path,'core.bare'):
+            raise Fault('UNSUPPORTED_GIT_LAYOUT','不支持裸仓库工作区操作。',path.name,
+                        '使用非裸的独立工作副本；不会更改 core.bare。')
         return values
 
     @contextmanager
@@ -185,7 +233,7 @@ class GitTools:
                 if count:blocked+=1;continue
                 rows.append({'path':name,'status':status,'source':source})
             return {'ok':True,'repo':self.policy.relative(repo),'entries':rows[:500],
-                    'truncated':len(rows)>500,'blocked_entries':blocked}
+                    **self._head_info(repo),'truncated':len(rows)>500,'blocked_entries':blocked}
 
     def log(self,repo_path='.',count=10):
         if not 1<=count<=50:raise ValueError('count 1..50')
@@ -285,6 +333,12 @@ class GitTools:
 
 
 class GitMixin:
+    def git_branches(self,repo_path='.',offset=0,limit=100):
+        return self.git.branches(repo_path,offset,limit)
+    def git_create_branch(self,branch,repo_path='.',checkout=True,expected_head=None):
+        return self.git.create_branch(branch,repo_path,checkout,expected_head)
+    def git_switch_branch(self,branch,repo_path='.',expected_head=None):
+        return self.git.switch_branch(branch,repo_path,expected_head)
     def git_init(self,repo_path='.'):
         return self.git.init(repo_path)
     def git_status(self,repo_path='.'):

@@ -6,13 +6,13 @@ v0.4 保留 v0.3 的图片、PDF、ZIP、二进制和安全写入接口，并补
 
 | 类别 | 接口 | 关键语义 |
 |---|---|---|
-| Git | git_init, git_status, git_log, git_diff, git_add, git_commit, git_push | 固定参数，不接收任意 Git flags；push 独立授权 |
+| Git | git_init, git_status, git_log, git_diff, git_branches, git_create_branch, git_switch_branch, git_add, git_commit, git_push | 固定参数，不接收任意 Git flags；push 独立授权 |
 | 命令 | run_command, start_command, read_command_output, cancel_command | 默认关闭；非 OS 沙箱；退出状态、游标、超时与子进程清理 |
 | 检索 | glob, grep, search_code, repo_overview, workspace_context | 忽略规则、扫描预算、代码声明/标识符启发式排序 |
 | 批量读取 | batch_read | 1–16 个固定只读操作，全批校验，逐项结果和错误 |
 | 跨文件补丁 | apply_patch(changes=[...]) | 1–64 个跨文件有序精确替换，原 SHA 必填、全批预检、确定序锁、尽力回滚 |
 
-只读模式 24 个工具；读写模式下，命令和推送均关闭时 33 个；开启命令增加 4 个，开启推送再增加 1 个，共 38 个。禁用的工具不会注册，服务实现也检查本地权限，不能靠提示词开启。
+v0.4.1 候选修复：只读模式 25 个工具；读写模式下，命令和推送均关闭时 36 个；开启命令增加 4 个，开启推送再增加 1 个，共 41 个。禁用的工具不会注册，服务实现也检查本地权限，不能靠提示词开启。
 
 ## 本机开启命令
 
@@ -59,9 +59,9 @@ Windows PowerShell 的包装器会保留最终原生命令的非零退出码，�
 
 ## Git 安全模式与限制
 
-Git 不依赖 Shell 开关；只读有 status/log/diff，read_write 才有 init/add/commit。工具使用固定 argv，禁用 hooks、fsmonitor、外部 diff/textconv、签名、自动维护、隐式 lazy fetch；忽略全局/系统 Git 配置。路径按字面量处理，不能注入 flags/pathspec magic。
+Git 不依赖 Shell 开关；只读有 status/log/diff/branches，read_write 才有 init/add/commit/create_branch/switch_branch。分支操作和能力诊断详见 [v0.4.1 修复说明](GIT_CAPABILITIES.md)。工具使用固定 argv，禁用 hooks、fsmonitor、外部 diff/textconv、签名、自动维护、隐式 lazy fetch；忽略全局/系统 Git 配置。路径按字面量处理，不能注入 flags/pathspec magic。
 
-当前要求仓库内真实 `.git` 目录；带 gitdir 文件的链接 worktree、submodule、外部 common dir/object alternates、符号链接或多硬链接 Git 元数据、包含外部 include/filter/HTTP 凭据路径等配置会明确拒绝。**不会为了兼容自动取消这些检查**。Git LFS filter 等配置需要在本机单独处理，本版不宣称完整支持所有 Git 布局。
+当前要求仓库内真实 `.git` 目录，支持经双配置安全检查的 `extensions.worktreeConfig` / `config.worktree`；不是取消所有 Git 配置审查。带 gitdir 文件的链接 worktree、submodule、外部 common dir/object alternates、符号链接或多硬链接 Git 元数据、包含外部 include/filter/HTTP 凭据路径等配置仍明确拒绝。**不会为了兼容自动取消这些检查**。Git LFS filter 等配置需要在本机单独处理，本版不宣称完整支持所有 Git 布局。
 
 Git 文件操作仍受 root/deny/write_roots 检查；`git_add` 或提交含未授权、敏感、链接或超限文件会整次拒绝。`git_diff`/`git_status` 过滤拒绝路径。若仅授权某个仓库的部分子目录可写，仓库级索引/提交可能被范围检查拒绝；请明确授权需要维护 Git 索引的仓库。
 

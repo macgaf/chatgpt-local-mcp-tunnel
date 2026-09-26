@@ -31,7 +31,9 @@ INSTRUCTIONS = ('先调用 policy_info；按项目路径定位 AGENTS.md、SKILL
     '先 workspace_context，再 search_code/grep 与 batch_read；修改后 git_diff 和运行测试。'
     '长任务使用 start_command 并读到 terminal 且 has_more=false；退出码非零不是通过。'
     '跨文件补丁 changes 必须带每个原文件哈希；异常时检查逐文件 rollback。'
-    '配置和密钥仅本机管理；Shell 默认关闭，开启后不是 OS 沙箱。')
+    '配置和密钥仅本机管理；Shell 默认关闭，开启后不是 OS 沙箱。'
+    '建分支用 git_create_branch，切换用 git_switch_branch；不因 Shell 关闭推断文件只读。'
+    'policy_info 的 capabilities 返回工具数/指纹；Git 失败不代表文件写入失败。')
 S = {'type': 'string', 'maxLength': 4096}
 TEXT = {'type': 'string', 'maxLength': 8*1024*1024}
 B = {'type': 'boolean'}
@@ -55,7 +57,7 @@ FIELDS = {'path': S, 'pattern': S, 'query': S, 'glob': S, 'content': TEXT,
         'required':['old_text','new_text'],'additionalProperties':False}}}
 DESCRIPTIONS = {
     'visual_probe':'生成仅像素内含随机字符的图片，检验客户端是否真的把图片送入模型。',
-    'policy_info':'显示当前 root、只读/读写模式、黑白名单。不能通过此工具修改权限。',
+    'policy_info':'显示 root、读写模式、工具目录指纹、文件/Git/Shell/推送能力及禁用原因；不修改权限或假称客户端已刷新。',
     'list_directory':'分页列目录；被策略拒绝的条目不会返回。检查 scan_truncated。',
     'file_info':'获取元数据及可读取文件的 SHA-256，用于写前冲突保护。',
     'read_file':'读取 UTF-8 文本/行范围并返回原文件 SHA-256。图像不要使用本工具。',
@@ -67,7 +69,7 @@ DESCRIPTIONS = {
     'list_archive':'列出 ZIP 内允许的成员，不落地解压；过滤敏感文件和危险路径。',
     'read_archive_member':'直接读取 ZIP 成员：文本、图片、PDF 页面或二进制资源。无需上传整个 ZIP。',
     'read_binary':'传输有哈希校验的分块 EmbeddedResource；客户端须支持二进制资源才能自动落盘。',
-    'diagnose':'诊断指定路径的本服务锁；返回持有者元数据。不会取消或解锁未知进程。',
+    'diagnose':'分别诊断能力、目标文件写权限、Git 兼容性及本服务锁；不会试写、取消或解锁未知进程。',
     'write_file':'创建/覆盖 UTF-8 文件；已有文件必须带 expected_sha256，写前备份，写后校验。',
     'write_binary':'Base64 解码后写入原始字节；不执行文件。覆盖要求 expected_sha256。',
     'edit_file':'单文件唯一文本精确替换；要求原 SHA-256，可 dry_run。',
@@ -85,6 +87,9 @@ DESCRIPTIONS.update({
     'git_add':'暂存明确路径；整批范围校验，不执行 Git filters。',
     'git_commit':'提交已暂存且有权修改的文件；需要本机/仓库 Git 身份，不执行 hooks。',
     'git_push':'将当前分支推送到本机已批准的 HTTPS/SSH URL；不支持 force/mirror/delete。',
+    'git_branches':'分页列出本地分支、当前分支和提交；不自动 fetch。',
+    'git_create_branch':'从当前 HEAD 新建本地分支，可同时切换；需要干净工作区，无 Shell/force/reset。',
+    'git_switch_branch':'切换到已有本地分支；检查干净状态和受影响路径，不猜测远端或覆盖忽略文件。',
     'start_command':'启动已明确启用的非沙箱 Shell 任务。request_id 去重；返回后继续读输出直到终止且 has_more=false。',
     'run_command':'执行短 Shell 任务并返回真实退出状态；输出较多时用返回 session_id 继续读取。',
     'read_command_output':'按字节游标读取有界任务输出；truncated 表示旧内容已被淘汰。',
@@ -98,6 +103,8 @@ DESCRIPTIONS.update({
 })
 FIELDS.update({
     'repo_path':S,'remote':S,'message':{'type':'string','minLength':1,'maxLength':16000},
+    'branch':{'type':'string','minLength':1,'maxLength':200},'checkout':B,
+    'expected_head':{'type':['string','null'],'maxLength':64},
     'paths':{'type':['array','null'],'maxItems':128,'items':S},
     'count':{'type':'integer','minimum':1,'maximum':50},'staged':B,
     'command':{'type':'string','minLength':1,'maxLength':32000},'cwd':S,
@@ -150,16 +157,22 @@ def validate(value, schema, where='arguments'):
                 validate(v, props[k], where+'.'+k)
 
 
+def tool_disabled_reason(name, policy):
+    if name in WRITES and policy.mode != 'read_write':
+        return 'READ_ONLY_MODE'
+    if name in COMMAND_TOOLS and not (policy.enable_commands and policy.mode == 'read_write'):
+        return 'COMMANDS_DISABLED'
+    if name == 'git_push' and not policy.enable_git_push:
+        return 'GIT_PUSH_DISABLED'
+    return None
+
+
 class Protocol:
     def __init__(self, service):
         self.service = service
         self.specs = {}
         for name, description in DESCRIPTIONS.items():
-            if name in WRITES and service.policy.mode != 'read_write':
-                continue
-            if name in COMMAND_TOOLS and not (service.policy.enable_commands and service.policy.mode == 'read_write'):
-                continue
-            if name == 'git_push' and not service.policy.enable_git_push:
+            if tool_disabled_reason(name, service.policy):
                 continue
             sig = inspect.signature(getattr(service,name))
             props, required = {}, []
