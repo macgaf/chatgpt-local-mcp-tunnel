@@ -58,7 +58,9 @@ ID 必须保存在本机受保护配置/profile；key 不写入 config.json。�
 
 运行 `self-test`；ID/key 可用后运行 `tunnel init` 和 `doctor --with-tunnel`。未安装时可以报告资源已保存、安装尚未执行；不能把本机启动失败误写成凭据无效，也不能把权限检查和认证检查混为一项。未执行的探针标记未验证。
 
-`tunnel run` 是持续运行命令，由独立终端运行，或经用户另行授权管理为服务。本轮资源准备不自动开机自启。Codex stdio 本地连接不依赖 Tunnel，ChatGPT 是否连接另行验收。
+安装与诊断完成后，可复制 [README 第 3.2.1 节的简版接续提示词](../README.md#connect-chatgpt)，一次授权启动 Tunnel、创建或复用 ChatGPT App、绑定已有 Tunnel，并在 ChatGPT 中调用 `policy_info` 和 `list_directory` 验收。先确认 Tunnel 在线，再扫描工具；沿用已确认的账号、工作区和权限，普通步骤不重复询问，登录、验证码及宿主强制确认仍由本人完成。
+
+`tunnel run` 是持续运行命令；接续任务应复用健康进程或启动能够在任务结束后继续运行的实例，并给出停止及下次启动的方法，不配置开机自启。仅完成资源准备或安装不等于已授权常驻运行；使用接续提示词时按其中明确授权执行。Codex stdio 本地连接不依赖 Tunnel，不能代替 ChatGPT 端验收。
 
 | 层级 | 通过条件 |
 |---|---|
