@@ -17,6 +17,8 @@
 
 代码提交 `b71bdea698b8416847fd639a354343fe5bde7d52` 的 [Actions run 36341050300](https://github.com/macgaf/chatgpt-local-mcp-tunnel/actions/runs/36341050300) 中 Ubuntu、macOS 的完整 pytest 和 self-test 通过，包含本机失败的安装测试。Windows 为 310 passed、8 skipped、4 failed：两项新增夹具使用系统默认编码读取 UTF-8 中文，两项使用 CREATE_ALWAYS 覆盖 Git 创建的隐藏 .git 文件而被 Windows 拒绝。改为显式 UTF-8 读取、r+b 原地改写测试指针；另沿编码路径检查了备份恢复：备份元数据本来写为 UTF-8，现在显式按 UTF-8 读取，新增中文文件名删除／恢复回归；会话 journal 读取也显式指定 UTF-8。权限检查不变，修订后以新提交 CI 为准。
 
+修订 `5acc87b` 的两轮 CI 中，新夹具及中文文件名恢复均通过；Windows 各剩一个相同的旧 Git 测试失败，日志为快速 Git 进程已经退出 0、AssignProcessToJobObject 返回 WinError 5。没有跳过该断言或去掉 Job 隔离：后续改为 CREATE_SUSPENDED → Job 绑定 → 验证主线程归属并 ResumeThread，绑定失败则终止挂起进程；新增 Windows 专用测试人为延迟 Job 绑定并验证命令在绑定前不执行。macOS/Linux 不走该路径。后续 CI 结果以包含此修复的提交为准。
+
 本机既有 `chatgpt-local-mcp-tunnel-fix-git-capabilities-20260927` 工作树也由新代码在 read_only 策略下真实读取成功：分支 `fix/git-capabilities-20260927`，HEAD 为 `f6ef1641ebf690f6d435932ca02c8b63ff174560`，无状态条目及截断；未修改该工作树。
 
 ## 覆盖与边界

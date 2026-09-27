@@ -27,7 +27,8 @@ def failure(reason, **details):
 class AppServer:
     def __init__(self, binary, home, cwd):
         env = child_environment(); env['CODEX_HOME'] = str(home)
-        flags = {'start_new_session': True} if os.name != 'nt' else {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP}
+        flags = {'start_new_session': True} if os.name != 'nt' else {
+            'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP | 0x00000004}  # CREATE_SUSPENDED
         self.proc = subprocess.Popen([binary, 'app-server', '--listen', 'stdio://'], cwd=cwd, env=env,
                                      stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, **flags)
         self.job = None; self.ident = 0; self.responses = queue.Queue(maxsize=64)
