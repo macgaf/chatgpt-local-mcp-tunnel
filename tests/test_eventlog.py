@@ -197,15 +197,25 @@ def test_recent_filters_and_export_safe_schema(space,tmp_path):
     with pytest.raises(FileExistsError):export(log.directory,destination)
 
 
-def test_follow_rotation_and_future_file(space):
+def test_follow_rotation_and_future_file(space, monkeypatch):
+    from home_readonly_mcp import eventlog
     log=logger(space,max_bytes=16384,backup_count=5)
     out=StringIO();stop=threading.Event()
+    ready=threading.Event()
+    original_segments=eventlog._segments
+    def snapshot_then_signal(*args, **kwargs):
+        result=original_segments(*args, **kwargs)
+        ready.set()
+        return result
+    monkeypatch.setattr(eventlog,'_segments',snapshot_then_signal)
     thread=threading.Thread(target=follow,args=(log.directory,),kwargs={
         'component':'commands','tail':0,'stop_event':stop,'interval':0.02,'output':out,'json_output':True})
     thread.start()
     try:
+        # tail=0 会跳过初始快照；先等空快照完成，再开始写未来记录。
+        assert ready.wait(5), '日志跟随器未完成初始快照'
         for i in range(70):
-            log.emit('commands','command_started',request_id=f'{i}')
+            assert log.emit('commands','command_started',request_id=f'{i}')
             time.sleep(0.005)
         until=time.monotonic()+3
         while len(out.getvalue().splitlines())<70 and time.monotonic()<until:time.sleep(0.02)

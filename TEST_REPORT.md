@@ -4,6 +4,8 @@
 
 ## 本机实际结果
 
+- `da219a9` 的 PR CI run 36342227000 三平台通过（Ubuntu 317/8、macOS 316/9、Windows 317/8，分别为 passed/skipped）；同提交 push run 36342224608 Windows 为 316 passed、8 skipped、1 failed，唯一失败是原有日志跟随测试少读一条。测试在 `tail=0` 初始快照完成前开始写入，记录可能被视为旧记录跳过；改为用事件等待空快照完成再写入，仍要求 70 条全部且唯一，并逐次检查写入成功。本机日志专项 30 passed；修正后的跨平台结果以 PR 最终 CI 为准。
+
 - 新文件/Git/搜索/协议专项：50 passed，退出码 0（依赖补齐后的记录）。
 - 完整集合：`LOCAL_MCP_TEST_CODEX_HISTORY=1 .venv/bin/python -m pytest -q --tb=short`，315 passed、6 skipped、1 failed，145.66 秒；退出码 1，不能称为完整本机验收通过。
 - 唯一失败为 `test_real_offline_install_and_reinstall`：临时安装器 30 秒超时。相同测试在未修改 origin/main 的独立源码副本也超时；临时安装的复制型 Python 连 `-V` 探针也曾返回 -9。沙箱外复测仍超时，准确 OS 根因未确认，没有归因为本轮代码，也没有修改安装器或弱化断言。
