@@ -1,6 +1,7 @@
 """Fixed Git actions; no caller-supplied flags, hooks, filters or implicit transport."""
 from __future__ import annotations
 from contextlib import contextmanager
+from contextvars import ContextVar
 import json
 import os
 from pathlib import Path
@@ -13,6 +14,7 @@ from .onboarding import child_environment
 from .processes import bounded_run
 from .storage import Lease, private_dir, read_bytes
 from .git_branches import BranchActions
+from .git_layout import layout
 
 GIT_READS={'git_status','git_log','git_diff','git_branches'}
 GIT_WRITES={'git_init','git_add','git_commit','git_push','git_create_branch','git_switch_branch'}
@@ -23,6 +25,7 @@ class GitTools(BranchActions):
         self.service=service
         self.policy=service.policy
         self.binary=None
+        self.active_layout=ContextVar("git_layout",default=None)
 
     def env(self, network=False):
         env=child_environment()
@@ -65,8 +68,16 @@ class GitTools(BranchActions):
                 flags+=['-c',f'core.sshCommand={sshcmd}']
         env=self.env(network)
         env['GIT_CEILING_DIRECTORIES']=str(Path(repo).resolve())
-        if (Path(repo)/'.git').is_dir():
-            flags += ['--git-dir='+str(Path(repo)/'.git'),'--work-tree='+str(repo)]
+        active=self.active_layout.get()
+        if active is not None and active[0]==Path(repo) and not (Path(repo)/'.git').exists():
+            raise Fault('GIT_LAYOUT_CHANGED','操作期间 Git 布局消失。','missing .git','停止并核查。')
+        if (Path(repo)/'.git').exists():
+            gitdir,common=layout(self.policy,Path(repo))
+            active=self.active_layout.get()
+            if active is not None and active[0]==Path(repo) and active[1:]!=(gitdir,common):
+                raise Fault('GIT_LAYOUT_CHANGED','操作期间 Git 布局改变。','metadata pointers changed','停止并核查；不自动重试。')
+            flags += ['--git-dir='+str(gitdir),'--work-tree='+str(repo)]
+            env['GIT_COMMON_DIR']=str(common)
         code,body=bounded_run([binary,*flags,*args],repo,env,
                              timeout=120 if network else 30,cap=cap)
         if code and not allow_failure:
@@ -93,13 +104,9 @@ class GitTools(BranchActions):
         return current
 
     def metadata(self, repo):
-        gitdir=repo/'.git'
-        if not gitdir.is_dir() or gitdir.is_symlink() or getattr(gitdir,'is_junction',lambda:False)():
-            raise Fault('UNSUPPORTED_GIT_LAYOUT','需要仓库内真实 .git 目录。',
-                        'gitdir 重定向、链接 worktree 或重解析点不在当前安全模式支持范围。',
-                        '使用独立工作副本；不会跟随外部 Git 元数据。')
+        gitdir,common=layout(self.policy,repo)
         count=0
-        for root,dirs,files in os.walk(gitdir,followlinks=False):
+        for root,dirs,files in os.walk(common,followlinks=False,onerror=lambda exc: (_ for _ in ()).throw(exc)):
             for name in dirs+files:
                 p=Path(root)/name;count+=1
                 if count>50000:
@@ -107,24 +114,24 @@ class GitTools(BranchActions):
                                 '在本机整理仓库或使用较小工作副本。')
                 st=p.lstat()
                 if (p.is_symlink() or getattr(p,'is_junction',lambda:False)() or
-                    not p.resolve().is_relative_to(gitdir.resolve()) or
+                    not p.resolve().is_relative_to(common.resolve()) or
                     (stat.S_ISREG(st.st_mode) and st.st_nlink>1) or
                     not (stat.S_ISREG(st.st_mode) or stat.S_ISDIR(st.st_mode))):
                     raise Fault('UNSAFE_GIT_METADATA','Git 元数据包含链接或范围跳转。',name,
                                 '使用不含外部元数据/硬链接的独立仓库。')
         for rel in ('commondir','objects/info/alternates','objects/info/http-alternates'):
-            p=gitdir/rel
+            p=common/rel
             if p.exists() and p.stat().st_size:
                 raise Fault('UNSAFE_GIT_METADATA','Git 使用替代对象库或外部 common dir。',rel,
                             '安全模式拒绝读取外部仓库对象。')
-        config=gitdir/'config'
+        config=common/'config'
         values=self._read_config_file(config,repo)
         enabled=self._config_bool(config,'extensions.worktreeconfig')
         worktree_config=gitdir/'config.worktree'
         # Validate the separate file BEFORE any Git command reads repository settings.
         # Also inspect dormant files; a later config change must not activate unchecked hooks/includes.
         if worktree_config.exists():
-            extra=self._read_config_file(worktree_config,repo,worktree=True)
+            extra=self._read_config_file(worktree_config,repo,worktree=True,gitdir=gitdir)
             if enabled:
                 for key,items in extra.items():
                     values.setdefault(key,[]).extend(items)
@@ -140,7 +147,7 @@ class GitTools(BranchActions):
                         '在本机检查配置；不显示配置值或自动修改。')
         return data.strip()==b'true'
 
-    def _read_config_file(self,path,repo,worktree=False):
+    def _read_config_file(self,path,repo,worktree=False,gitdir=None):
         try:st=path.lstat()
         except FileNotFoundError:
             raise Fault('INVALID_GIT_CONFIG','Git 配置缺失。','config','在本机检查仓库。') from None
@@ -163,7 +170,7 @@ class GitTools(BranchActions):
                     (k.startswith('remote.') and k.endswith(('.uploadpack','.receivepack','.promisor','.vcs'))))
             if k=='core.worktree':
                 candidate=Path(value)
-                if not candidate.is_absolute():candidate=repo/'.git'/candidate
+                if not candidate.is_absolute():candidate=(gitdir or repo/'.git')/candidate
                 # A same-target symlink alias is still a mutable redirection, not the
                 # canonical worktree. Permit '..' and canonical absolute paths only
                 # when lexical and resolved locations agree and no component is linked.
@@ -189,9 +196,19 @@ class GitTools(BranchActions):
         if write:
             self.policy.resolve(str(repo/'.local-mcp-git-scope'),write=True)
             self.service.commands.guard_mutation([repo])
-        with Lease(self.policy.state_dir,repo/'.git','git_operation'):
-            config={} if initializing and not (repo/'.git').exists() else self.metadata(repo)
-            yield repo,config
+        empty=initializing and not (repo/'.git').exists()
+        gitdir,common=(repo/'.git',repo/'.git') if empty else layout(self.policy,repo,write=write)
+        if write and not empty:
+            self.service.commands.guard_mutation([repo,common.parent])
+        with Lease(self.policy.state_dir,common,'git_operation'):
+            if not empty and layout(self.policy,repo,write=write)!=(gitdir,common):
+                raise Fault('GIT_LAYOUT_CHANGED','Git 布局已改变。','metadata changed before lock','核查后重试。')
+            config={} if empty else self.metadata(repo)
+            token=self.active_layout.set(None if empty else (repo,gitdir,common))
+            try:
+                yield repo,config
+            finally:
+                self.active_layout.reset(token)
 
     def safe_paths(self,repo,raw,write=False,strict=False):
         selected=[];denied=0

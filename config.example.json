@@ -25,5 +25,7 @@
     "max_bytes": 5242880,
     "backup_count": 5,
     "retention_days": 14
-  }
+  },
+  "enable_codex_history": false,
+  "codex_history_home": ""
 }

@@ -1,3 +1,11 @@
+# 未发布：linked worktree 与 FileMCP 能力补齐
+
+- Git 解析并验证标准 linked worktree，common dir 共享锁，当前工作树状态检查和配置解析；root/write_roots 不扩大。
+- 新增带备份及哈希前置条件的 delete_file/delete_directory；文本追加保留并发保护。
+- 搜索增加类型、跨行、独立前后上下文、单文件范围和不区分大小写的 brace glob。
+- 新增独立开关、默认关闭的 Codex 会话导入；新建会话、读回验证、持久 request_id 去重，不调用模型。
+- 基础版本仍为 0.4.1；未合并、未部署。完整差异和验收边界见 docs/FILEMCP_PARITY.md、TEST_REPORT.md。
+
 # Changelog
 
 ## v0.4.1 分支操作与能力诊断 — 2026-09-27

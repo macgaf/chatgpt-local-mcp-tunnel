@@ -133,7 +133,7 @@ def test_descendant_cleanup(space):
 def test_tool_exposure_full_mode_and_open_world(space):
     p,svc=space[2:];p.enable_commands=True;p.enable_git_push=True
     tools=Protocol(svc).specs
-    assert len(tools)==41
+    assert len(tools)==43
     assert tools['run_command']['annotations']['openWorldHint']
     assert not tools['run_command']['annotations']['readOnlyHint']
     assert tools['git_push']['annotations']['openWorldHint']

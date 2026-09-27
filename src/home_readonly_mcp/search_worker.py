@@ -1,4 +1,5 @@
 """Trusted isolated regex worker: bounded input/output, no filesystem access requested."""
+import bisect
 import json
 import re
 import sys
@@ -8,22 +9,33 @@ def main():
     request=json.loads(sys.stdin.buffer.read(52*1024*1024+1))
     pat=request['pattern']
     regex=re.compile(re.escape(pat) if request['fixed_strings'] else pat,
-                     0 if request['case_sensitive'] else re.IGNORECASE)
+                     (0 if request['case_sensitive'] else re.IGNORECASE) |
+                     (re.MULTILINE | re.DOTALL if request.get('multiline') else 0))
     mode=request['output_mode'];limit=request['head_limit'];offset=request['offset'];context=request['context']
+    before=request.get('context_before',context);after=request.get('context_after',context)
     results=[];seen=0;more=False;output_bytes=0
     for path,text in request['files']:
         lines=text.splitlines();hits=[]
-        for n,line in enumerate(lines):
-            if regex.search(line):
-                hits.append(n)
+        if request.get('multiline'):
+            starts=[0]+[m.end() for m in re.finditer('\n',text)]
+            matched=set()
+            for match in regex.finditer(text):
+                first=bisect.bisect_right(starts,match.start())-1
+                last=bisect.bisect_right(starts,max(match.start(),match.end()-1))-1
+                matched.update(range(first,min(last+1,len(lines))))
+            hits=sorted(matched)
+        else:
+            for n,line in enumerate(lines):
+                if regex.search(line):
+                    hits.append(n)
         if mode=='files_with_matches':
             entries=[{'path':path}] if hits else []
         elif mode=='count':
             entries=[{'path':path,'count':len(hits)}] if hits else []
         else:
             entries=({'path':path,'line':i+1,'text':lines[i][:2000],
-                      'context_before':[x[:1000] for x in lines[max(0,i-context):i]],
-                      'context_after':[x[:1000] for x in lines[i+1:i+context+1]]} for i in hits)
+                      'context_before':[x[:1000] for x in lines[max(0,i-before):i]],
+                      'context_after':[x[:1000] for x in lines[i+1:i+after+1]]} for i in hits)
         for row in entries:
             if seen>=offset:
                 if len(results)>=limit:

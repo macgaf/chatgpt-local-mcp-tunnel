@@ -45,7 +45,8 @@ def save_settings(path, data):
 
 
 def configure(path, *, root=None, mode=None, tunnel_id=None, key_source=None, allow_home_write=False,
-              enable_commands=None, enable_git_push=None, acknowledge_unsandboxed_commands=False):
+              enable_commands=None, enable_git_push=None, acknowledge_unsandboxed_commands=False,
+              enable_codex_history=None, acknowledge_codex_history=False):
     data = load_settings(path)
     data.setdefault('root','~')
     data.setdefault('mode','read_only')
@@ -57,7 +58,11 @@ def configure(path, *, root=None, mode=None, tunnel_id=None, key_source=None, al
         raise Fault('COMMAND_RISK_ACK_REQUIRED','开启 Shell 需要明确确认风险。',
                     'Shell 不受文件黑名单或 root 沙箱限制，只有 cwd 被检查。',
                     '在本机显式添加 --acknowledge-unsandboxed-commands；没有自动开启。')
-    for key,value in (('enable_commands',enable_commands),('enable_git_push',enable_git_push)):
+    if enable_codex_history is True and not acknowledge_codex_history:
+        raise Fault('CODEX_HISTORY_ACK_REQUIRED','导入会话需要独立授权。','会在项目目录之外新建 Codex 历史。',
+                    '本机使用 --acknowledge-codex-history 确认；不自动开启。')
+    for key,value in (('enable_commands',enable_commands),('enable_git_push',enable_git_push),
+                      ('enable_codex_history',enable_codex_history)):
         if value is not None:data[key]=value
     if data.get('tunnel_id') and not re.fullmatch(r'tunnel_[0-9a-f]{32}',data['tunnel_id']):
         raise Fault('INVALID_TUNNEL_ID', 'Tunnel ID 格式不正确。', '应为 tunnel_ 后接 32 位小写十六进制字符。',

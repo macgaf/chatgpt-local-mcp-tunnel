@@ -266,8 +266,8 @@ def test_worktree_config_hardlink_rejected(space):
 
 @pytest.mark.parametrize('mode,commands,push,count', [
     ('read_only', False, False, 25), ('read_only', True, True, 25),
-    ('read_write', False, False, 36), ('read_write', True, False, 40),
-    ('read_write', True, True, 41)])
+    ('read_write', False, False, 38), ('read_write', True, False, 42),
+    ('read_write', True, True, 43)])
 def test_capabilities_exactly_match_registry(space, mode, commands, push, count):
     _, policy, svc = ready(space)
     policy.mode = mode; policy.enable_commands = commands; policy.enable_git_push = push
@@ -385,8 +385,8 @@ def test_diagnostics_distinguish_linked_layout_and_file_write(space):
     raw(root, 'worktree', 'add', '-b', 'fixture/linked', str(linked))
     result = svc.diagnose(str(linked))
     assert result['file_write']['allowed']
-    assert not result['git']['supported']
-    assert result['git']['error']['code'] == 'UNSUPPORTED_GIT_LAYOUT'
+    assert result['git']['supported']
+    assert result['git']['branch'] == 'fixture/linked'
     assert result['capabilities']['client_tool_visibility_verified'] is False
 
 

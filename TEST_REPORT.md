@@ -1,3 +1,28 @@
+# linked worktree 与 FileMCP 能力补齐候选（2026-09-28）
+
+分支 `feat/linked-worktree-filemcp`，基线 `e7542ebb28ebd228907be078ac90265e4f7a3abb`。独立克隆内修改；基础版本保留 0.4.1，未修改现有 MCP 安装、配置、凭据、自启或在线进程。
+
+## 本机实际结果
+
+- 新文件/Git/搜索/协议专项：50 passed，退出码 0（依赖补齐后的记录）。
+- 完整集合：`LOCAL_MCP_TEST_CODEX_HISTORY=1 .venv/bin/python -m pytest -q --tb=short`，315 passed、6 skipped、1 failed，145.66 秒；退出码 1，不能称为完整本机验收通过。
+- 唯一失败为 `test_real_offline_install_and_reinstall`：临时安装器 30 秒超时。相同测试在未修改 origin/main 的独立源码副本也超时；临时安装的复制型 Python 连 `-V` 探针也曾返回 -9。沙箱外复测仍超时，准确 OS 根因未确认，没有归因为本轮代码，也没有修改安装器或弱化断言。
+- 真实 CLI `python -m home_readonly_mcp.cli self-test`：在临时 HOME 执行，退出码 0；legacy handshake、modern discovery、read roundtrip、只读隐藏写工具、目录指纹一致性全部通过。
+- Codex 0.157.0 实际 app-server：临时 HOME 新建会话、写入中文 user/assistant 消息、新进程 resume/turns-list 逐条一致；未调用模型。该真实测试显式由 LOCAL_MCP_TEST_CODEX_HISTORY=1 启用，普通 CI 没有 Codex 时跳过，不将替身验证算实机。
+- Python AST、两份 README 一致性和 git diff --check 通过。
+
+最后 Git 路径权限预检与 Codex 子进程组清理改动后，Git／linked worktree／Codex 导入／文件／搜索／协议相关复测为 **150 passed in 103.52s**，退出码 0，包含真实 Codex 导入。文档及 onboarding／协议／交互配置相关检查为 **45 passed、1 skipped、1 deselected**（显式排除上述安装环境失败项），退出码 0。各轮重叠用例不相加。远端三平台 CI 以本候选实际提交为准；不用历史 main 的 CI 代替。
+
+## 覆盖与边界
+
+真实 Git linked worktree 的 status/log/diff/add/commit/create/switch、独立索引、共享 lease、主库写权限、root 外拒绝、相对 gitfile、工作树配置、反向关联、危险配置及对象 alternates；普通仓库已有回归继续运行。
+
+文件追加的哈希冲突、大小限制及备份；删除的预览、备份恢复、目录清单冲突、受保护条目整批拒绝、部分失败清单；搜索类型、跨行、前后独立上下文、brace glob 和单文件路径；Codex 独立开关、启用确认、请求去重、失败不重试、只写新历史及真实读回。
+
+没有真实网络 Git push、用户现有 Codex 历史写入、用户安装升级或 Tunnel/ChatGPT 新工具目录验收。候选源码通过不等于在线服务升级。比较范围与语义差异见 [FILEMCP_PARITY.md](docs/FILEMCP_PARITY.md)。
+
+---
+
 # v0.4.1 合并与部署补记（2026-09-27）
 
 用户明确授权合并、重新安装和重启后，PR #3 已合并为 `2bb42104b5091a68d1b31f6954ed157db1f299aa`，合并树与三平台测试通过的 `f6ef1641ebf690f6d435932ca02c8b63ff174560` 一致。安装复制的20个 Python 文件与该源码逐一一致；通过现有 LaunchAgent 重启后，ChatGPT 真实调用 policy_info 已返回0.4.1 / 36个服务端工具，git_status 原故障项目成功，临时文件真实写入和读回哈希一致。完整部署范围、配置保持及客户端目录待刷新事项见 docs/DEPLOYMENT_20260927.md。以下保留修复开发时的原始记录，不把当时尚未部署的描述当作当前状态。

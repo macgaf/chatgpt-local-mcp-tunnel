@@ -74,6 +74,8 @@ class Policy:
     max_image_bytes: int = 2 * 1024 * 1024
     enable_commands: bool = False
     enable_git_push: bool = False
+    enable_codex_history: bool = False
+    codex_history_home: str = ''
     git_push_remotes: list[str] = field(default_factory=list)
     git_credential_helper: str = ''
     git_user_name: str = ''
@@ -107,9 +109,11 @@ class Policy:
             n = getattr(self, name)
             if type(n) is not int or n <= 0:
                 raise ValueError(f'{name} must be a positive integer')
-        for name in ('enable_commands','enable_git_push'):
+        for name in ('enable_commands','enable_git_push','enable_codex_history'):
             if type(getattr(self,name)) is not bool:
                 raise ValueError(f'{name} must be a boolean')
+        if not isinstance(self.codex_history_home,str) or '\0' in self.codex_history_home:
+            raise ValueError('codex_history_home must be a local path string')
         if self.git_credential_helper not in ('','osxkeychain','manager','libsecret'):
             raise ValueError('git_credential_helper must be a supported native helper name')
         for name in ('git_user_name','git_user_email'):

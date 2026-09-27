@@ -138,6 +138,9 @@ def parser():
     conf.add_argument('--disable-commands',dest='enable_commands',action='store_false')
     conf.add_argument('--enable-git-push',dest='enable_git_push',action='store_true',default=None)
     conf.add_argument('--disable-git-push',dest='enable_git_push',action='store_false')
+    conf.add_argument('--enable-codex-history',dest='enable_codex_history',action='store_true',default=None)
+    conf.add_argument('--disable-codex-history',dest='enable_codex_history',action='store_false')
+    conf.add_argument('--acknowledge-codex-history',action='store_true')
     conf.add_argument('--acknowledge-unsandboxed-commands',action='store_true')
     key = subs.add_parser('key')
     key.add_argument('action',choices=['set','status'])
@@ -231,7 +234,9 @@ def main(argv=None):
             result = configure(args.config,root=args.root,mode=args.mode,tunnel_id=args.tunnel_id,
                                key_source=args.key_source,allow_home_write=args.allow_home_write,
                                enable_commands=args.enable_commands,enable_git_push=args.enable_git_push,
-                               acknowledge_unsandboxed_commands=args.acknowledge_unsandboxed_commands)
+                               acknowledge_unsandboxed_commands=args.acknowledge_unsandboxed_commands,
+                               enable_codex_history=args.enable_codex_history,
+                               acknowledge_codex_history=args.acknowledge_codex_history)
         elif args.command=='key':
             settings = load_settings(args.config)
             if args.action=='set':

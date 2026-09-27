@@ -17,10 +17,12 @@ from .command_tools import CommandManager, CommandMixin
 from .git_tools import GitTools, GitMixin
 from .search_tools import SearchMixin
 from .patches import apply_changes
+from .file_actions import FileActions
+from .codex_history import CodexHistoryMixin
 from .eventlog import EventLog
 
 
-class HomeService(SearchMixin, GitMixin, CommandMixin):
+class HomeService(SearchMixin, GitMixin, CommandMixin, FileActions, CodexHistoryMixin):
     def __init__(self, policy):
         self.policy = policy
         self.runtime_instance = uuid.uuid4().hex
@@ -193,19 +195,24 @@ class HomeService(SearchMixin, GitMixin, CommandMixin):
                 break
         return {'ok': True, 'results': results, 'truncated': truncated, 'skipped_files': skipped}
 
-    def write_file(self, path, content, expected_sha256=None, dry_run=False):
-        return self._write(path, content.encode('utf-8'), expected_sha256, dry_run)
+    def write_file(self, path, content, expected_sha256=None, dry_run=False, append=False):
+        if type(append) is not bool:
+            raise ValueError('append must be boolean')
+        return self._write(path, content.encode('utf-8'), expected_sha256, dry_run, append=append)
 
     def write_binary(self, path, data_base64, expected_sha256=None, dry_run=False):
         if len(data_base64) > (self.policy.max_file_size*4//3)+8:
             raise ValueError('base64 payload exceeds configured file size')
         return self._write(path, base64.b64decode(data_base64, validate=True), expected_sha256, dry_run)
 
-    def _write(self, path, data, expected, dry_run):
+    def _write(self, path, data, expected, dry_run, append=False):
         p = self.policy.require(path, write=True, must_exist=False)
         self.commands.guard_mutation([p])
         with Lease(self.policy.state_dir, p, 'write_file'):
             old = read_bytes(self.policy, str(p))[1] if p.exists() else None
+            if append and old is not None:
+                old.decode('utf-8')
+                data = old + data
             return commit_bytes(self.policy, p, data, old, expected, dry_run=dry_run)
 
     def edit_file(self, path, old_text, new_text, expected_sha256, dry_run=False):

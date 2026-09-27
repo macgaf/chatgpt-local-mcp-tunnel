@@ -20,7 +20,28 @@ BATCH_READS={'policy_info','list_directory','file_info','read_file','find_files'
              'list_backups','read_document','list_archive'}
 
 
+FILE_TYPES = {
+    'py': '*.py *.pyi', 'js': '*.js *.jsx *.mjs *.cjs', 'ts': '*.ts *.tsx *.mts *.cts',
+    'rust': '*.rs', 'swift': '*.swift', 'csharp': '*.cs', 'go': '*.go', 'java': '*.java',
+    'c': '*.c *.h', 'cpp': '*.cpp *.cc *.cxx *.hpp *.hh *.hxx *.h',
+    'json': '*.json *.jsonl', 'yaml': '*.yaml *.yml', 'toml': '*.toml', 'md': '*.md *.mdx *.markdown',
+    'html': '*.html *.htm', 'css': '*.css', 'xml': '*.xml', 'sh': '*.sh *.bash *.zsh',
+    'ruby': '*.rb Rakefile Gemfile', 'php': '*.php', 'sql': '*.sql', 'text': '*.txt',
+}
+
+
 def pattern_matches(path,pattern):
+    # 有界 brace 展开；不把 glob 当作可执行正则。
+    if '{' in pattern:
+        left, rest = pattern.split('{', 1)
+        if '}' not in rest:
+            raise ValueError('unclosed glob brace')
+        choices, right = rest.split('}', 1)
+        parts = choices.split(',')
+        if len(parts) > 32 or '{' in choices or '{' in right:
+            raise ValueError('glob supports one brace group with at most 32 alternatives')
+        return any(pattern_matches(path, left + part + right) for part in parts)
+    path=path.casefold();pattern=pattern.casefold()
     return (fnmatch.fnmatchcase(path,pattern) or fnmatch.fnmatchcase(Path(path).name,pattern) or
             (pattern.startswith('**/') and fnmatch.fnmatchcase(path,pattern[3:])))
 
@@ -28,7 +49,7 @@ def pattern_matches(path,pattern):
 class Scan:
     def __init__(self,policy,path='.',include_ignored=False):
         self.policy=policy;self.base=policy.require(path)
-        if not self.base.is_dir():raise ValueError('search path must be an existing directory')
+        if not (self.base.is_dir() or self.base.is_file()):raise ValueError('search path must be a file or directory')
         self.include_ignored=include_ignored
         self.visited=0;self.bytes=0;self.skipped=0;self.reasons=[];self.rules={}
         self.deadline=time.monotonic()+10
@@ -66,6 +87,11 @@ class Scan:
         return ignored
 
     def files(self):
+        if self.base.is_file():
+            self.visited=1
+            if self.base.name != '.git' and not self.ignored(self.base):
+                yield self.base
+            return
         for root,dirs,files in os.walk(self.base,followlinks=False):
             retained=[]
             for name in sorted(dirs)+sorted(files):
@@ -106,7 +132,7 @@ class SearchMixin:
             raise ValueError('invalid pattern/head_limit/offset')
         scan=Scan(self.policy,path,include_ignored);results=[]
         for p in scan.files():
-            rel=p.relative_to(scan.base).as_posix()
+            rel=(p.name if scan.base.is_file() else p.relative_to(scan.base).as_posix())
             if pattern_matches(rel,pattern):
                 try:results.append((p.stat().st_mtime_ns,self.policy.relative(p)))
                 except OSError:continue
@@ -118,20 +144,29 @@ class SearchMixin:
                 'snapshot':False}
 
     def grep(self,pattern,path='.',glob='*',fixed_strings=True,case_sensitive=False,
-             output_mode='files_with_matches',context=0,head_limit=100,offset=0,include_ignored=False):
+             output_mode='files_with_matches',context=0,head_limit=100,offset=0,include_ignored=False,
+             type=None,multiline=False,context_before=None,context_after=None):
         if not pattern or len(pattern)>1000 or output_mode not in ('files_with_matches','content','count'):
             raise ValueError('invalid pattern/output_mode')
         if not 0<=context<=10 or not 1<=head_limit<=200 or not 0<=offset<=10000:
             raise ValueError('context 0..10; head_limit 1..200; offset 0..10000')
+        if type is not None and type not in FILE_TYPES:
+            raise ValueError('unsupported file type; supported: ' + ', '.join(sorted(FILE_TYPES)))
+        for value in (context_before, context_after):
+            if value is not None and (not isinstance(value,int) or isinstance(value,bool) or not 0<=value<=10):
+                raise ValueError('context_before/context_after must be 0..10')
         scan=Scan(self.policy,path,include_ignored);files=[]
         for p in scan.files():
-            if not pattern_matches(p.relative_to(scan.base).as_posix(),glob):continue
+            if not pattern_matches((p.name if scan.base.is_file() else p.relative_to(scan.base).as_posix()),glob):continue
+            if type is not None and not any(pattern_matches(p.name, pat) for pat in FILE_TYPES[type].split()):continue
             text=scan.text(p)
             if 'byte_budget' in scan.reasons:break
             if text is not None:files.append((self.policy.relative(p),text))
         payload=json.dumps({'pattern':pattern,'files':files,'fixed_strings':fixed_strings,
             'case_sensitive':case_sensitive,'output_mode':output_mode,'context':context,
-            'head_limit':head_limit,'offset':offset},ensure_ascii=False).encode('utf-8')
+            'head_limit':head_limit,'offset':offset,'multiline':multiline,
+            'context_before':context if context_before is None else context_before,
+            'context_after':context if context_after is None else context_after},ensure_ascii=False).encode('utf-8')
         if len(payload)>52*1024*1024:
             raise Fault('SEARCH_INPUT_LIMIT','搜索输入展开后超过预算。','JSON 编码后大于 52 MiB。','缩小 path 或 glob。')
         # Untrusted regex runs in a disposable worker, never in the stdio server thread.
