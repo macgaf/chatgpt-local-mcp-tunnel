@@ -184,7 +184,7 @@ class CodexHistoryMixin:
         signature = digest(json.dumps([title, messages, str(cwd), str(home)], ensure_ascii=False).encode())
         with Lease(self.policy.state_dir, journal, 'codex_history_import'):
             if journal.exists():
-                previous = json.loads(journal.read_text())
+                previous = json.loads(journal.read_text(encoding='utf-8'))
                 if previous['signature'] != signature: raise failure('request_id reused with different input')
                 if previous.get('result'): return previous['result']
                 raise failure('previous import is incomplete; inspect before retrying', thread_id=previous.get('thread_id'))

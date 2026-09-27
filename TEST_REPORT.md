@@ -13,6 +13,12 @@
 
 最后 Git 路径权限预检与 Codex 子进程组清理改动后，Git／linked worktree／Codex 导入／文件／搜索／协议相关复测为 **150 passed in 103.52s**，退出码 0，包含真实 Codex 导入。文档及 onboarding／协议／交互配置相关检查为 **45 passed、1 skipped、1 deselected**（显式排除上述安装环境失败项），退出码 0。各轮重叠用例不相加。远端三平台 CI 以本候选实际提交为准；不用历史 main 的 CI 代替。
 
+## 首轮远端 CI 与夹具修订
+
+代码提交 `b71bdea698b8416847fd639a354343fe5bde7d52` 的 [Actions run 36341050300](https://github.com/macgaf/chatgpt-local-mcp-tunnel/actions/runs/36341050300) 中 Ubuntu、macOS 的完整 pytest 和 self-test 通过，包含本机失败的安装测试。Windows 为 310 passed、8 skipped、4 failed：两项新增夹具使用系统默认编码读取 UTF-8 中文，两项使用 CREATE_ALWAYS 覆盖 Git 创建的隐藏 .git 文件而被 Windows 拒绝。改为显式 UTF-8 读取、r+b 原地改写测试指针；另沿编码路径检查了备份恢复：备份元数据本来写为 UTF-8，现在显式按 UTF-8 读取，新增中文文件名删除／恢复回归；会话 journal 读取也显式指定 UTF-8。权限检查不变，修订后以新提交 CI 为准。
+
+本机既有 `chatgpt-local-mcp-tunnel-fix-git-capabilities-20260927` 工作树也由新代码在 read_only 策略下真实读取成功：分支 `fix/git-capabilities-20260927`，HEAD 为 `f6ef1641ebf690f6d435932ca02c8b63ff174560`，无状态条目及截断；未修改该工作树。
+
 ## 覆盖与边界
 
 真实 Git linked worktree 的 status/log/diff/add/commit/create/switch、独立索引、共享 lease、主库写权限、root 外拒绝、相对 gitfile、工作树配置、反向关联、危险配置及对象 alternates；普通仓库已有回归继续运行。

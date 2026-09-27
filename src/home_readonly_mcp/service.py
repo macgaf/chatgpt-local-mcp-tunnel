@@ -249,7 +249,7 @@ class HomeService(SearchMixin, GitMixin, CommandMixin, FileActions, CodexHistory
         found = []
         if base.exists():
             for meta in base.glob('*.json'):
-                data = json.loads(meta.read_text())
+                data = json.loads(meta.read_text(encoding='utf-8'))
                 if data.get('path') == str(p) and data.get('root') == str(self.policy.root):
                     found.append({k: data[k] for k in ('id','sha256','created_at','size')})
         found.sort(key=lambda x: x['created_at'], reverse=True)
@@ -260,7 +260,7 @@ class HomeService(SearchMixin, GitMixin, CommandMixin, FileActions, CodexHistory
         if len(backup_id) != 32 or any(c not in '0123456789abcdef' for c in backup_id):
             raise ValueError('invalid backup id')
         base = self.policy.state_dir / 'backups'
-        meta = json.loads((base / (backup_id+'.json')).read_text())
+        meta = json.loads((base / (backup_id+'.json')).read_text(encoding='utf-8'))
         if meta.get('path') != str(p) or meta.get('root') != str(self.policy.root):
             raise Fault('BACKUP_SCOPE_MISMATCH', '备份不属于该文件/root。', backup_id, '使用 list_backups 返回的对应备份。')
         with (base / (backup_id+'.bin')).open('rb') as f:

@@ -11,7 +11,7 @@ def test_append_conflict_backup_and_limit(space):
     before = svc.read_file('a.txt')
     with pytest.raises(Fault): svc.write_file('a.txt', 'extra', append=True)
     svc.write_file('a.txt', 'extra', before['sha256'], append=True)
-    assert (root / 'a.txt').read_text() == before['content'] + 'extra'
+    assert (root / 'a.txt').read_text(encoding='utf-8') == before['content'] + 'extra'
     with pytest.raises(Fault): svc.write_file('a.txt', 'lost', before['sha256'], append=True)
     assert svc.list_backups('a.txt')['backups'][0]['sha256'] == before['sha256']
     policy.max_file_size = (root / 'a.txt').stat().st_size
@@ -43,7 +43,7 @@ def test_recursive_delete_preflight_and_recovery(space):
     assert not folder.exists() and result['atomic'] is False
     for name in reversed(result['removed_directories']): svc.create_directory(name)
     for backup in result['backups']: svc.restore_file(backup['path'], backup['backup_id'], 'MISSING')
-    assert (folder / 'data.txt').read_text() == 'changed' and (folder / 'empty').is_dir()
+    assert (folder / 'data.txt').read_text(encoding='utf-8') == 'changed' and (folder / 'empty').is_dir()
 
 
 @pytest.mark.parametrize('kind', ['secret', 'git', 'link', 'hardlink'])
@@ -60,7 +60,7 @@ def test_directory_rejects_entire_batch_before_delete(space, kind):
         try: os.link(root / 'a.txt', folder / 'hard')
         except OSError: pytest.skip('hardlinks unavailable')
     with pytest.raises(Fault): svc.delete_directory('folder')
-    assert (folder / 'allowed.txt').read_text() == 'keep'
+    assert (folder / 'allowed.txt').read_text(encoding='utf-8') == 'keep'
 
 
 def test_directory_partial_failure_returns_backups(space, monkeypatch):
@@ -100,3 +100,14 @@ def test_search_multiline_type_context_and_file(space):
     assert svc.grep('end', path='sample.PY')['results'] == [{'path': 'sample.PY'}]
     assert set(svc.glob('*.{py,js}')['results']) == {'sample.PY', 'sample.js'}
     with pytest.raises(ValueError): svc.grep('start', type='unknown-type')
+
+
+def test_delete_unicode_filename_restore(space):
+    _, root, _, svc = space
+    path = '资料.txt'
+    svc.write_file(path, '中文内容')
+    sha = svc.file_info(path)['sha256']
+    deleted = svc.delete_file(path, sha)
+    assert svc.list_backups(path)['backups'][0]['id'] == deleted['backup_id']
+    svc.restore_file(path, deleted['backup_id'], 'MISSING')
+    assert svc.read_file(path)['content'] == '中文内容'

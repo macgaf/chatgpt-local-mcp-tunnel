@@ -8,6 +8,13 @@ from home_readonly_mcp.service import HomeService
 from test_git_capabilities import raw, fault
 
 
+def rewrite_gitfile(path, content):
+    # Windows 下 Git 将 .git 标为隐藏文件；r+b 不使用 CREATE_ALWAYS，保留属性。
+    with path.open('r+b') as stream:
+        stream.write(content.encode('utf-8'))
+        stream.truncate()
+
+
 def linked(space):
     _, root, policy, svc = space
     main = root / 'main'; main.mkdir()
@@ -41,7 +48,7 @@ def test_linked_full_local_workflow(space):
 def test_relative_gitfile_and_overlay(space):
     main, wt, _, svc = linked(space)
     gitdir = main / '.git/worktrees/linked'
-    (wt / '.git').write_text('gitdir: ../main/.git/worktrees/linked\n')
+    rewrite_gitfile(wt / '.git', 'gitdir: ../main/.git/worktrees/linked\n')
     raw(main, 'config', 'extensions.worktreeConfig', 'true')
     raw(main, 'config', '--file', str(gitdir / 'config.worktree'), 'core.worktree', str(wt))
     assert svc.git_status('linked')['ok']
@@ -73,7 +80,7 @@ class HomeServiceContext:
 def test_reject_unsafe_linked_metadata(space, target):
     main, wt, _, svc = linked(space)
     gitdir = main / '.git/worktrees/linked'
-    if target == 'gitdir': (wt / '.git').write_text('gitdir: /outside\n')
+    if target == 'gitdir': rewrite_gitfile(wt / '.git', 'gitdir: /outside\n')
     if target == 'commondir': (gitdir / 'commondir').write_text('/outside\n')
     if target == 'backlink': (gitdir / 'gitdir').write_text(str(main / '.git') + '\n')
     if target == 'alternates': (main / '.git/objects/info/alternates').write_text('/outside\n')

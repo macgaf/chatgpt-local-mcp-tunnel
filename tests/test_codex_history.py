@@ -21,7 +21,7 @@ def test_history_disabled_and_configuration_ack(space):
     with pytest.raises(Fault): configure(path, root=str(root), enable_codex_history=True)
     assert not path.exists()
     configure(path, root=str(root), enable_codex_history=True, acknowledge_codex_history=True)
-    assert json.loads(path.read_text())['enable_codex_history']
+    assert json.loads(path.read_text(encoding='utf-8'))['enable_codex_history']
     policy.enable_codex_history = True
     spec = Protocol(svc).specs['save_conversation_to_codex']
     assert not spec['annotations']['readOnlyHint'] and spec['annotations']['openWorldHint']
@@ -46,7 +46,7 @@ def fake_server(monkeypatch, mismatch=False):
                 FakeServer.path = path
                 return {'thread': {'id': ident, 'path': str(path)}}
             if method == 'thread/turns/list':
-                rows = [json.loads(line) for line in FakeServer.path.read_text().splitlines()]
+                rows = [json.loads(line) for line in FakeServer.path.read_text(encoding='utf-8').splitlines()]
                 items = []
                 for row in rows:
                     p = row['payload']
