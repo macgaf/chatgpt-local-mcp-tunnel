@@ -48,6 +48,7 @@ def main():
         print(json.dumps({'config':str(config),'installation':str(appdir),'root':args.root or '~',
             'mode':args.mode or 'preserve existing, otherwise read_only','media':not args.core_only,
             'register_codex':args.register_codex,'install_tunnel_client':args.install_client,
+            'macos_native_libraries':'官方 PyPI wheel SHA256 与安装字节一致后，仅处理新 venv 原生库的 quarantine；媒体自检通过才切换',
             'secrets_in_args':False},ensure_ascii=False,indent=2))
         return 0
     audit = EventLog(config)
@@ -91,9 +92,15 @@ def main():
             packages = ['pathspec>=0.12,<1','Pillow>=11,<13','pypdfium2>=4.30,<6','keyring>=25,<27']
             if args.heif:
                 packages.append('pillow-heif>=0.22,<2')
-            proc = subprocess.run([str(python),'-m','pip','install',*packages],env=child_environment(),check=False)
-            if proc.returncode:
-                raise RuntimeError('Optional dependency installation failed; check pip/DNS/proxy output. Re-run or use --core-only explicitly.')
+            if sys.platform == 'darwin':
+                from home_readonly_mcp.wheel_install import install_macos_wheels
+                install_macos_wheels(python, packages, child_environment())
+            else:
+                subprocess.run([str(python),'-m','pip','install',*packages],env=child_environment(),check=True)
+            stage = 'media_self_test'
+            audit.emit('install','install_stage',stage=stage)
+            subprocess.run([str(python),'-I',str(runfile),'--config',str(config),'media-self-test'],
+                           check=True,env=child_environment(),timeout=60)
         stage = 'self_test'
         audit.emit('install','install_stage',stage=stage)
         # Probe the staged release before switching the stable managed launcher.

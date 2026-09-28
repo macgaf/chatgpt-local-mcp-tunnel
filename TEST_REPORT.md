@@ -1,3 +1,20 @@
+# v0.5.1 macOS 原生媒体修复验证（2026-09-28）
+
+修复基于 main `64108d5`，通过 [PR #6](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/6) 交付。首个修复提交 `6e51846` 的本机部署仍标为 0.5.0，随后用户再次报告弹窗；以下记录补查原因、增加进程清理以及实际安装并启动 0.5.1 后的结果。
+
+首个修复提交的 [PR CI](https://github.com/macgaf/chatgpt-local-mcp-tunnel/actions/runs/36398587527) 与 [push CI](https://github.com/macgaf/chatgpt-local-mcp-tunnel/actions/runs/36398528950) 共六项三平台检查均通过。包含后续进程清理与版本提升的最终跨平台检查以 PR 对应提交状态为准，不能沿用首个提交的结果。
+
+- 原始故障：15:37:29 系统对 `_imaging.cpython-314-darwin` 显示 Gatekeeper 提示，15:37:56 MCP `read_image` 失败。Pillow 已安装，但原生库带 Chrome 来源的 quarantine；旧代码把加载失败报为 DEPENDENCY_MISSING，doctor 只检查模块存在。
+- 再次弹窗：16:51:28 系统出现同一旧原生库的提示，16:52:10 旧 MCP PID 的 `read_image` 失败并仍报 DEPENDENCY_MISSING。该进程使用首次安装的 0.5.0，未使用新修复。先前仅确认新实例健康，遗漏了旧进程仍可接受请求，不能据此认为升级切换已完整验收。
+- 进程根因：旧 Tunnel 包装器收到 SIGTERM 时未进入 finally，其独立子进程组可残留。真实合成进程测试在修复前失败；增加 SIGTERM／SIGINT 处理后，两个信号均验证包装器及后代退出，不削弱断言。
+- 原生依赖专项：首轮 **88 passed、1 skipped**。包含真实 macOS 合成文件隔离属性检查／定向移除／其他属性保留，篡改时不部分放行，符号链接拒绝，官方 wheel 哈希不符拒绝，以及媒体失败时不切换安装指针。
+- 最终完整本机回归：`python -m pytest -q`，**331 passed、9 skipped，117.14 秒，退出码 0**。包含新增的两个退出清理用例。本轮未显式启用真实 Codex 会话导入测试；Windows 专用用例在本机跳过，其他平台结果由 CI 单独记录。
+- 本机实际安装 `0.5.1-1790586437536521000`：8 个官方 PyPI wheel 校验通过，**27 个原生 `.so`／`.dylib`** 字节与对应 wheel 一致，再定向移除这些新文件上的 quarantine。JPEG 解码、PDF 渲染／文字提取及 ImageContent 自检、真实 stdio self-test 通过后才切换启动器；安装源码与当前源码逐文件一致。
+- 仍被独立 Codex 客户端引用的旧 0.5.0 环境，另行按已安装版本下载官方 Pillow／PDFium wheel 并验证，**27 个原生文件**全部匹配后定向移除 quarantine；其真实 stdio 图片与 PDF 读取通过。没有终止那些独立客户端、修改系统 Python 或改变系统安全策略；这次定向修复不是安装器自动修改全部旧环境的功能。
+- 仅清理经路径、父子关系和进程组核实的旧服务链，再由原 LaunchAgent 启动 0.5.1。实机向新包装器发送 SIGTERM，其 Tunnel、MCP 与 Tunnel 自己启动的 Codex app-server 均自动退出，未手动补杀；再次启动成功。Tunnel main 通道 `probe_status=ok`，`enable_commands=true`、原 HOME 读写配置及 Git push 关闭状态保留。
+- 通过 0.5.1 实际安装启动器的 stdio `tools/call` 调用 `read_image` 和 `render_pdf_page`：合成 JPEG 返回 120×60 ImageContent，PDF 在 `max_edge=320` 下返回 320×160 ImageContent，与先前已查看的红绿蓝色块和“MCP media test”图像哈希一致。此项是本机 MCP 协议与图片内容验证，不冒充 ChatGPT 云端客户端视觉验收。
+- 最后媒体调用后检查最近 10 分钟 syspolicyd 日志，没有匹配 `_imaging`、`pdfium` 或 `Prompt shown` 的记录。此结论只覆盖已查时段，不等于对所有未来弹窗的保证。独立 Codex stdio 连接仍需重连才能使用新版本代码。
+
 # v0.5.0 默认开启会话导入与合并验证（2026-09-28）
 
 ## 信息一致性复核

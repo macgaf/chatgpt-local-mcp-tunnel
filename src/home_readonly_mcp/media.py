@@ -11,30 +11,21 @@ import zipfile
 from urllib.parse import quote
 from .errors import Fault
 from .storage import digest
+from .dependencies import load
 
 
 def text_content(data):
     return {'type': 'text', 'text': json.dumps(data, ensure_ascii=False)}
 
 
-def need(package, extra):
-    raise Fault('DEPENDENCY_MISSING', f'需要可选依赖 {package}。', '当前 Python 环境未安装对应文件适配器。',
-                f'重新运行安装脚本并包含 {extra} 组件，或在安装虚拟环境中安装 {package}。', package=package)
-
-
 def image_content(data, name, policy, *, max_edge=1600, crop=None):
-    try:
-        from PIL import Image, ImageOps
-    except ImportError:
-        need('Pillow', 'media')
+    Image = load('PIL.Image', 'Pillow')
+    ImageOps = load('PIL.ImageOps', 'Pillow')
     if not 64 <= max_edge <= 4096:
         raise ValueError('max_edge must be between 64 and 4096')
     if name.lower().endswith(('.heic', '.heif')):
-        try:
-            import pillow_heif
-            pillow_heif.register_heif_opener()
-        except ImportError:
-            need('pillow-heif', 'heif')
+        pillow_heif = load('pillow_heif', 'pillow-heif')
+        pillow_heif.register_heif_opener()
     try:
         with warnings.catch_warnings():
             warnings.simplefilter('error', Image.DecompressionBombWarning)
@@ -88,10 +79,8 @@ def image_content(data, name, policy, *, max_edge=1600, crop=None):
 def pdf_page(data, name, policy, page=1, max_edge=1600):
     if not 1 <= page or not 64 <= max_edge <= 4096:
         raise ValueError('page >=1; max_edge between 64 and 4096')
-    try:
-        import pypdfium2 as pdfium
-    except ImportError:
-        need('pypdfium2', 'media')
+    pdfium = load('pypdfium2', 'pypdfium2')
+    load('PIL.Image', 'Pillow')
     try:
         with pdfium.PdfDocument(data) as doc:
             if page > len(doc):
@@ -123,10 +112,7 @@ def document_text(data, name, policy, start_page=1, end_page=None):
         raise Fault('FORMAT_NEEDS_ADAPTER', '此格式没有内置文本解析器。',
                     '当前文档解析器支持 PDF；ZIP 内文本和图像可直接读取。',
                     '使用 read_binary 传递原始字节，或在本机用专用适配器导出文本/预览。', format=name.rsplit('.', 1)[-1])
-    try:
-        import pypdfium2 as pdfium
-    except ImportError:
-        need('pypdfium2', 'media')
+    pdfium = load('pypdfium2', 'pypdfium2')
     pieces = []
     with pdfium.PdfDocument(data) as doc:
         end = min(end_page if end_page is not None else start_page + 9, len(doc))
@@ -263,10 +249,9 @@ def binary_content(data, name, offset, length, policy, *, archive=None, member=N
 
 def visual_probe(policy):
     """Random code exists ONLY inside pixels; a correct reply verifies host visual delivery."""
-    try:
-        from PIL import Image, ImageDraw, ImageFont
-    except ImportError:
-        need('Pillow', 'media')
+    Image = load('PIL.Image', 'Pillow')
+    ImageDraw = load('PIL.ImageDraw', 'Pillow')
+    ImageFont = load('PIL.ImageFont', 'Pillow')
     import secrets
     code = ''.join(secrets.choice('23456789ABCDEFGHJKMNPQRSTUVWXYZ') for _ in range(6))
     im = Image.new('RGB', (640, 180), 'white')

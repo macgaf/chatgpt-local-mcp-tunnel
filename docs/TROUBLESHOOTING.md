@@ -14,7 +14,7 @@ ChatGPT 无法连接时，先检查本项目的运行实例，再排查 App 绑�
 
 `policy_info.capabilities` 返回工具目录、数量、指纹、运行实例和独立权限状态，`diagnose(path)` 分别返回文件写策略、Git 状态及锁。详见 [能力诊断](GIT_CAPABILITIES.md)。`write_roots=[]` 不表示没有可写目录；`shell_enabled=false` 不表示文件只读；`UNSUPPORTED_GIT_LAYOUT` 不表示文件不可写。
 
-若服务端工具目录与 ChatGPT 发现的目录不一致（v0.5.0 读写默认 39 个、只读 25 个，实际数量还取决于开关），先核对源码/已安装版本、运行实例和连接工具刷新；没有证据不能断言是缓存。服务不能直接观察或修复宿主侧的工具筛选，`client_tool_visibility_verified` 始终为 false。CLI doctor 的能力检查是新诊断实例，不替代真实 Tunnel 上的 `policy_info`。
+若服务端工具目录与 ChatGPT 发现的目录不一致（v0.5.1 读写默认 39 个、只读 25 个，实际数量还取决于开关），先核对源码/已安装版本、运行实例和连接工具刷新；没有证据不能断言是缓存。服务不能直接观察或修复宿主侧的工具筛选，`client_tool_visibility_verified` 始终为 false。CLI doctor 的能力检查是新诊断实例，不替代真实 Tunnel 上的 `policy_info`。
 
 ## 诊断命令与错误码
 
@@ -118,10 +118,16 @@ FileMCP 原作可能报 `Command session is active; finish or cancel it before f
 
 先核对被拦截的具体路径；Chrome 宿主创建的 Python 副本可能带 quarantine，不能仅凭弹窗认定基础 Python 损坏。当前 POSIX 安装器使用符号链接复用已有解释器。停止重复运行受阻副本，按 [安装说明](INSTALL_WITH_CODEX.md#macos-python-验证弹窗) 检查并验证安装／重装，不关闭系统安全检查。
 
+若名称为 `_imaging*.so` 或 PDFium 动态库，则是媒体原生依赖被隔离。新版在加载前返回 `DEPENDENCY_QUARANTINED`，避免反复弹窗；用完整安装器按官方 wheel 校验后重新安装。`DEPENDENCY_MISSING` 表示顶层依赖不存在；`DEPENDENCY_LOAD_FAILED` 表示内部模块、动态库或架构加载失败，不能一概按“没装包”处理。媒体子进程超时／崩溃分别报告 `MEDIA_SELF_TEST_TIMEOUT`／`MEDIA_SELF_TEST_FAILED`。
+
+执行 `local-mcp media-self-test` 验证 JPEG、PDF 和图片内容返回；`doctor` 的 `media_runtime=pass` 才是媒体服务端可用证据。随后用实际客户端调用 `read_image`／`render_pdf_page`；`self-test` 的文本握手不能替代媒体验收。
+
+若新环境自检通过而客户端仍弹窗，对照 `mcp.jsonl` 的请求时间、pid／process_id 与实际安装路径。新旧实例可能并存；新 health URL 只证明新实例健康。按 [安装说明](INSTALL_WITH_CODEX.md#macos-python-验证弹窗) 完成旧进程回收和客户端重连，不重复修改已经通过校验的新环境。
+
 ## main 已更新，但本机仍是旧功能
 
 先确认本机仓库的 origin、分支和 HEAD。安装来源应为 `main`；不要再按旧文档回退到功能分支。工作区有未提交修改或本地 main 分叉时停止更新，不强制覆盖。
 
 `git pull` 只更新仓库，不更新已复制到版本化安装目录的 MCP。按 README [第 3.7 节](../README.md#upgrade) 重新执行完整安装器，再重启由用户管理的 MCP／Tunnel 实例并刷新客户端工具发现。v0.4.0 的交互安装和日志修订沿用相同版本号，需同时核对源码提交、安装器结果及 `logs path`，不能只看 `--version`。
 
-排查时保留现有 root/mode/write_roots、凭据、日志配置和其他 Codex 条目。v0.5.0 的 enable_codex_history 缺省为 true，显式 false 保留；它在读写模式下允许新建项目 root 外的 Codex 历史。除已说明的版本默认值变化，不借重新安装改写其他权限，也不要求用户把 ID/key 发到聊天。
+排查时保留现有 root/mode/write_roots、凭据、日志配置和其他 Codex 条目。v0.5.0 起 enable_codex_history 缺省为 true，显式 false 保留；它在读写模式下允许新建项目 root 外的 Codex 历史。除已说明的版本默认值变化，不借重新安装改写其他权限，也不要求用户把 ID/key 发到聊天。

@@ -114,7 +114,7 @@ def test_doctor_distinguishes_cloud_not_checked(space):
     cfg=locations()[0]/'config.json'
     onboarding.configure(cfg,root=str(space[1]))
     r=doctor(cfg)
-    assert r['ok']
+    assert r['ok'], r
     assert next(x for x in r['checks'] if x['name']=='tunnel_auth_and_connection')['status']=='not_checked'
 
 @pytest.mark.skipif(os.name=='nt',reason='fake executable uses POSIX shebang; native Windows entry test is separate platform validation')

@@ -1,5 +1,6 @@
 """Local-only configuration, verified downloads, Codex registration and tunnel launch."""
 from __future__ import annotations
+from contextlib import contextmanager
 import hashlib
 from io import BytesIO
 import json
@@ -343,6 +344,25 @@ def tunnel_doctor(config_path):
     return run_checked([binary,'doctor','--profile',profile,'--explain'],env=env,secrets=(key,),timeout=90)
 
 
+@contextmanager
+def _tunnel_termination_signals():
+    """服务管理器的 SIGTERM 必须进入 finally，清理本次启动的独立进程组。"""
+    previous = {}
+    def terminate(signum, frame):
+        # 清理期间重复信号不应打断子进程回收。
+        for sig in previous:
+            signal.signal(sig, signal.SIG_IGN)
+        raise SystemExit(128+signum)
+    try:
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            previous[sig] = signal.getsignal(sig)
+            signal.signal(sig, terminate)
+        yield
+    finally:
+        for sig, handler in previous.items():
+            signal.signal(sig, handler)
+
+
 def tunnel_run(config_path):
     settings,binary,key,_,profile,env = tunnel_context(config_path)
     audit = EventLog(config_path)
@@ -350,7 +370,7 @@ def tunnel_run(config_path):
     state = private_dir(locations()[2]/'tunnel')
     argv = [binary,'run','--profile',profile,'--health.listen-addr','127.0.0.1:0',
             '--health.url-file',str(state/'health-url')]
-    with Lease(locations()[2],settings['tunnel_id'],'tunnel_run'):
+    with _tunnel_termination_signals(), Lease(locations()[2],settings['tunnel_id'],'tunnel_run'):
         kwargs = {'start_new_session':True} if os.name!='nt' else {'creationflags':subprocess.CREATE_NEW_PROCESS_GROUP}
         proc = subprocess.Popen(argv,env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,**kwargs)
         audit.emit('tunnel','tunnel_process_started',child_pid=proc.pid)
@@ -374,7 +394,7 @@ def tunnel_run(config_path):
                 raise Fault('TUNNEL_EXITED','Tunnel 进程异常退出。','见上方脱敏日志。',
                             '运行 local-mcp tunnel doctor；核对认证、网络和本机 MCP。',exit_code=status)
         finally:
-            stop_owned_process(proc)
+            stop_owned_process(proc, force_group=True)
             proc.stdout.close()
             audit.emit('tunnel','tunnel_process_stopped','INFO' if proc.returncode == 0 else 'WARNING',exit_code=proc.returncode)
 
