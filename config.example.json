@@ -26,6 +26,6 @@
     "backup_count": 5,
     "retention_days": 14
   },
-  "enable_codex_history": false,
+  "enable_codex_history": true,
   "codex_history_home": ""
 }

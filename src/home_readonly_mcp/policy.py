@@ -74,7 +74,7 @@ class Policy:
     max_image_bytes: int = 2 * 1024 * 1024
     enable_commands: bool = False
     enable_git_push: bool = False
-    enable_codex_history: bool = False
+    enable_codex_history: bool = True
     codex_history_home: str = ''
     git_push_remotes: list[str] = field(default_factory=list)
     git_credential_helper: str = ''

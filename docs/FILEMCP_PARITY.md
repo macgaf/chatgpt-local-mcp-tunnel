@@ -2,7 +2,7 @@
 
 核对日期：2026-09-28。Tunnel 基于 `origin/main`，FileMCP 对照本机源码提交 `3e015fe1e5199df01cfdefe7f2028adcb0316756` 的 macOS 工具注册表、实现，以及当前连接器工具清单。不是仅按工具名称推测功能，也不是两者所有平台 GUI 的逐项复刻。
 
-本轮候选分支：`feat/linked-worktree-filemcp`。版本仍为 0.4.1，不自动安装、合并或改变现有权限。工具参数及限制见 [CODING_TOOLS.md](CODING_TOOLS.md)，测试证据见 [TEST_REPORT.md](../TEST_REPORT.md)。
+本轮版本：0.5.0。Codex 会话导入默认开启，显式关闭的配置继续保留；只读模式仍不注册该写入工具。源码更新不自动安装或重启现有服务。工具参数及限制见 [CODING_TOOLS.md](CODING_TOOLS.md)，测试证据见 [TEST_REPORT.md](../TEST_REPORT.md)。
 
 ## MCP 能力映射
 
@@ -21,7 +21,7 @@
 | git_init / status / log / diff / add / commit | 同名工具 | 本轮打通 linked worktree；固定 argv、配置审查、文件规则仍生效 |
 | git_push | git_push | 已有独立开关和 URL 白名单；保留当前分支→同名分支，不自动改成任意上游 |
 | run_command / start_command / read_command_output / cancel_command | 同名工具 | 已有；Shell 仍默认关闭，输出游标和子进程清理仍生效 |
-| save_conversation_to_codex | 同名工具 | 新增；独立默认关闭开关，新建会话、验证读回、持久请求去重 |
+| save_conversation_to_codex | 同名工具 | 新增；默认开启、可独立关闭，新建会话、验证读回、持久请求去重 |
 
 Tunnel 另有图片/PDF/ZIP/二进制、备份恢复、文件信息、权限诊断，以及专用 Git 分支接口，不需要从 FileMCP 重复增加。
 
@@ -43,6 +43,6 @@ Tunnel 另有图片/PDF/ZIP/二进制、备份恢复、文件信息、权限诊�
 
 ## 部署与授权
 
-只读 25 个工具；读写、所有额外开关关闭时 38 个；Shell +4、推送 +1、Codex 历史导入 +1，最多 44 个。独立开关必须在本机修改后重启才生效，模型无远程改开关接口。
+只读 25 个工具；读写默认 39 个（含 Codex 历史导入）；Shell +4、推送 +1，关闭历史导入减 1，最多 44 个。独立开关必须在本机修改后重启才生效，模型无远程改开关接口。
 
-本轮只交付源码分支和验证。上线仍需合并／安装、重启正确实例和刷新客户端目录；当前运行服务没有自动获得这些能力。
+主线源码更新后，上线仍需安装、重启正确实例和刷新客户端目录；当前运行服务不会自动获得这些能力。

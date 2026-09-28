@@ -140,7 +140,7 @@ def parser():
     conf.add_argument('--disable-git-push',dest='enable_git_push',action='store_false')
     conf.add_argument('--enable-codex-history',dest='enable_codex_history',action='store_true',default=None)
     conf.add_argument('--disable-codex-history',dest='enable_codex_history',action='store_false')
-    conf.add_argument('--acknowledge-codex-history',action='store_true')
+    conf.add_argument('--acknowledge-codex-history',action='store_true',help=argparse.SUPPRESS)
     conf.add_argument('--acknowledge-unsandboxed-commands',action='store_true')
     key = subs.add_parser('key')
     key.add_argument('action',choices=['set','status'])

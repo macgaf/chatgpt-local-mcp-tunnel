@@ -81,7 +81,9 @@ def main():
         envdir = destination/'venv'
         stage = 'venv'
         audit.emit('install','install_stage',stage=stage)
-        venv.EnvBuilder(with_pip=not args.core_only).create(envdir)
+        # POSIX 复用已安装的解释器；Chrome 宿主创建的可执行副本可能带 quarantine，
+        # 在 macOS 触发 Gatekeeper 弹窗。Windows 保持复制，避免依赖符号链接权限。
+        venv.EnvBuilder(with_pip=not args.core_only, symlinks=os.name!='nt').create(envdir)
         python = envdir/('Scripts/python.exe' if os.name=='nt' else 'bin/python')
         if not args.core_only:
             stage = 'dependencies'

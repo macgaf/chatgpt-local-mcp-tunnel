@@ -160,7 +160,7 @@ class CodexHistoryMixin:
     def save_conversation_to_codex(self, title, messages, request_id, repo_path='.'):
         if self.policy.mode != 'read_write' or not self.policy.enable_codex_history:
             raise Fault('CODEX_HISTORY_DISABLED', 'Codex 会话导入未启用。', 'independent opt-in required',
-                        '在本机明确开启 enable_codex_history；此工具会在项目目录之外创建 Codex 历史。')
+                        '需要 read_write 且 enable_codex_history 未被关闭；此工具会在项目目录之外创建 Codex 历史。')
         if not isinstance(title, str) or not title.strip() or len(title.encode()) > 500:
             raise ValueError('title must be 1..500 UTF-8 bytes')
         if not isinstance(request_id, str) or not 1 <= len(request_id) <= 128:

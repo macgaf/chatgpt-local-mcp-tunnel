@@ -266,8 +266,8 @@ def test_worktree_config_hardlink_rejected(space):
 
 @pytest.mark.parametrize('mode,commands,push,count', [
     ('read_only', False, False, 25), ('read_only', True, True, 25),
-    ('read_write', False, False, 38), ('read_write', True, False, 42),
-    ('read_write', True, True, 43)])
+    ('read_write', False, False, 39), ('read_write', True, False, 43),
+    ('read_write', True, True, 44)])
 def test_capabilities_exactly_match_registry(space, mode, commands, push, count):
     _, policy, svc = ready(space)
     policy.mode = mode; policy.enable_commands = commands; policy.enable_git_push = push

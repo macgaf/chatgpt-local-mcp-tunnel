@@ -1,4 +1,4 @@
-# v0.4 编程接口与权限
+# v0.5 编程接口与权限
 
 ## 可调用工具
 
@@ -12,7 +12,7 @@ v0.4 保留 v0.3 的图片、PDF、ZIP、二进制和安全写入接口，并补
 | 批量读取 | batch_read | 1–16 个固定只读操作，全批校验，逐项结果和错误 |
 | 跨文件补丁 | apply_patch(changes=[...]) | 1–64 个跨文件有序精确替换，原 SHA 必填、全批预检、确定序锁、尽力回滚 |
 
-当前候选：只读模式 25 个工具；读写模式下，命令、推送和 Codex 会话导入均关闭时 38 个；命令增加 4 个，推送增加 1 个，会话导入增加 1 个，最多 44 个。禁用的工具不会注册，服务实现也检查本地权限，不能靠提示词开启。
+只读模式 25 个工具；读写模式默认 39 个（含 Codex 会话导入）；命令增加 4 个，推送增加 1 个，关闭会话导入减少 1 个，最多 44 个。禁用的工具不会注册，服务实现也检查本地权限，不能靠提示词开启。
 
 ## 本机开启命令
 
@@ -141,19 +141,19 @@ credential helper 只能为空或 `osxkeychain` / `manager` / `libsecret` 这几
 
 目录先预检、按路径加锁、再次验证，然后为全部文件建立备份。外部修改或删除失败返回 `DELETE_INCOMPLETE`、已删路径和备份；不是原子事务。恢复时先按 `removed_directories` 的逆序用 create_directory 重建父目录，再逐文件 restore_file。外部非合作写入仍可能与文件操作竞争，不能把本服务的锁描述为 OS 沙箱。
 
-### 可选 Codex 会话导入
+### Codex 会话导入
 
 此功能通过本机 Codex app-server 创建新会话，并将给定 user/assistant 消息写入新建的 legacy rollout，再由新 app-server 读取所有消息核对。不会发起 `turn/start` 或调用模型，不修改既有会话；历史格式是内部适配，不属于稳定的官方导入 API。
 
-独立授权后在本机开启：
+默认开启，可在本机关闭或重新开启：
 
 ```bash
-local-mcp configure --enable-codex-history --acknowledge-codex-history
+local-mcp configure --enable-codex-history
 # 关闭
 local-mcp configure --disable-codex-history
 ```
 
-需要 mode=read_write 和 PATH 上的 codex。默认写入当前 HOME/.codex；本机配置 `codex_history_home` 可以指定其他 Codex home，MCP 参数不能更改它。该权限允许在项目 root 之外创建 Codex 历史，并启动读取对应 Codex 配置的本机进程；文件黑名单不是此适配器的沙箱。安装不会自动启用它。
+需要 mode=read_write 和 PATH 上的 codex。默认写入当前 HOME/.codex；本机配置 `codex_history_home` 可以指定其他 Codex home，MCP 参数不能更改它。该权限允许在项目 root 之外创建 Codex 历史，并启动读取对应 Codex 配置的本机进程；文件黑名单不是此适配器的沙箱。v0.5.0 起缺少 enable_codex_history 的旧配置使用 true；显式 false 不会被安装或 configure 覆盖。旧的 --acknowledge-codex-history 参数仍兼容，但无需使用。默认开启只注册工具，不会主动导入任何会话；未安装 Codex 时调用会明确报错。
 
 调用 `save_conversation_to_codex(title, messages, request_id, repo_path=".")`；messages 为 1–500 项、最多 2 MB 文本、首项必须为 user。request_id 必填且持久去重：相同输入返回已验证结果，参数变化拒绝，未完成请求也不会自动创建第二份。失败时保留 phase/thread_id，供本机核查；不自动删除可能已创建的会话。工具不用于复制工具调用、图片或完整执行状态。
 

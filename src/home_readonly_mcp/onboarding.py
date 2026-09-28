@@ -58,9 +58,8 @@ def configure(path, *, root=None, mode=None, tunnel_id=None, key_source=None, al
         raise Fault('COMMAND_RISK_ACK_REQUIRED','开启 Shell 需要明确确认风险。',
                     'Shell 不受文件黑名单或 root 沙箱限制，只有 cwd 被检查。',
                     '在本机显式添加 --acknowledge-unsandboxed-commands；没有自动开启。')
-    if enable_codex_history is True and not acknowledge_codex_history:
-        raise Fault('CODEX_HISTORY_ACK_REQUIRED','导入会话需要独立授权。','会在项目目录之外新建 Codex 历史。',
-                    '本机使用 --acknowledge-codex-history 确认；不自动开启。')
+    # 保留 acknowledge_codex_history 参数兼容旧命令；导入默认开启，无需额外确认。
+    data.setdefault('enable_codex_history', True)
     for key,value in (('enable_commands',enable_commands),('enable_git_push',enable_git_push),
                       ('enable_codex_history',enable_codex_history)):
         if value is not None:data[key]=value

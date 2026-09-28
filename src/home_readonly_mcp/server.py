@@ -71,7 +71,7 @@ DESCRIPTIONS = {
     'read_binary':'传输有哈希校验的分块 EmbeddedResource；客户端须支持二进制资源才能自动落盘。',
     'diagnose':'分别诊断能力、目标文件写权限、Git 兼容性及本服务锁；不会试写、取消或解锁未知进程。',
     'write_file':'创建/覆盖/追加 UTF-8 文件；已有文件必须带 expected_sha256，写前备份，写后校验。',
-    'save_conversation_to_codex':'将给定 user/assistant 消息保存为新 Codex 会话并读回验证；独立开关默认关闭，写入项目外的 Codex 历史，不调用模型。request_id 持久去重。',
+    'save_conversation_to_codex':'将给定 user/assistant 消息保存为新 Codex 会话并读回验证；读写模式下默认开启，可在本机关闭，写入项目外的 Codex 历史，不调用模型。request_id 持久去重。',
     'delete_file':'删除普通文件；要求原 SHA-256，删除前备份，可 dry_run。',
     'delete_directory':'递归删除有界目录；默认预览，执行要求预览 sha256；全量预检和备份，部分失败明确报告，不是原子事务。',
     'write_binary':'Base64 解码后写入原始字节；不执行文件。覆盖要求 expected_sha256。',

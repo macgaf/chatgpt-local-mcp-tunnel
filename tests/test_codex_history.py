@@ -1,4 +1,4 @@
-"""会话导入必须独立启用；只向新会话写合成消息并检查持久去重。"""
+"""会话导入默认开启且可关闭；只向新会话写合成消息并检查持久去重。"""
 import json
 import os
 from pathlib import Path
@@ -8,25 +8,42 @@ import pytest
 from home_readonly_mcp import codex_history
 from home_readonly_mcp.errors import Fault
 from home_readonly_mcp.onboarding import configure
+from home_readonly_mcp.policy import Policy
 from home_readonly_mcp.server import Protocol
 
 MESSAGES = [{'role': 'user', 'content': '合成问题'}, {'role': 'assistant', 'content': '合成回答'}]
 
 
-def test_history_disabled_and_configuration_ack(space):
+def test_history_default_and_explicit_disable(space):
     home, root, policy, svc = space
-    assert 'save_conversation_to_codex' not in Protocol(svc).specs
-    with pytest.raises(Fault): svc.save_conversation_to_codex('title', MESSAGES, 'one')
-    path = home / 'local-config.json'
-    with pytest.raises(Fault): configure(path, root=str(root), enable_codex_history=True)
-    assert not path.exists()
-    configure(path, root=str(root), enable_codex_history=True, acknowledge_codex_history=True)
-    assert json.loads(path.read_text(encoding='utf-8'))['enable_codex_history']
-    policy.enable_codex_history = True
+    assert policy.enable_codex_history
     spec = Protocol(svc).specs['save_conversation_to_codex']
     assert not spec['annotations']['readOnlyHint'] and spec['annotations']['openWorldHint']
+    policy.enable_codex_history = False
+    assert 'save_conversation_to_codex' not in Protocol(svc).specs
+    with pytest.raises(Fault): svc.save_conversation_to_codex('title', MESSAGES, 'one')
+    policy.enable_codex_history = True
     policy.mode = 'read_only'
     assert 'save_conversation_to_codex' not in Protocol(svc).specs
+    with pytest.raises(Fault): svc.save_conversation_to_codex('title', MESSAGES, 'one')
+
+
+def test_history_configuration_defaults_and_preserves_opt_out(space):
+    home, root, _, _ = space
+    path = home / 'local-config.json'
+    # 旧配置缺少开关时也采用新默认值。
+    path.write_text(json.dumps({'root': str(root), 'mode': 'read_write'}), encoding='utf-8')
+    assert Policy.from_file(path).enable_codex_history
+    configure(path)
+    assert json.loads(path.read_text(encoding='utf-8'))['enable_codex_history']
+    configure(path, enable_codex_history=False)
+    configure(path, root=str(root))
+    assert not Policy.from_file(path).enable_codex_history
+    configure(path, enable_codex_history=True)
+    assert Policy.from_file(path).enable_codex_history
+    # 兼容旧参数，但不再要求它。
+    configure(path, enable_codex_history=True, acknowledge_codex_history=True)
+    assert Policy.from_file(path).enable_codex_history
 
 
 def fake_server(monkeypatch, mismatch=False):
@@ -100,7 +117,7 @@ def test_history_rejects_escape_and_existing_turn(space):
                     reason='可选真实 Codex 验收；设置 LOCAL_MCP_TEST_CODEX_HISTORY=1，仅用临时 HOME')
 def test_real_codex_history_roundtrip(space):
     _, _, policy, svc = space
-    policy.enable_codex_history = True
+    assert policy.enable_codex_history
     result = svc.save_conversation_to_codex('合成测试', MESSAGES, 'real-fixture')
     assert result['verified'] and result['message_count'] == 2 and not result['model_called']
     assert svc.save_conversation_to_codex('合成测试', MESSAGES, 'real-fixture') == result

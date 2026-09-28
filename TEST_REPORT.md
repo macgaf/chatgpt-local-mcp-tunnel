@@ -1,3 +1,19 @@
+# v0.5.0 默认开启会话导入与合并验证（2026-09-28）
+
+用户授权将 Codex 会话导入默认开启、提升版本并在验证后合并 main。源码版本统一为 0.5.0；read_write 默认注册 39 个工具，read_only 仍为 25 个。缺省配置使用新默认值，显式 false 保留；导入不开启模型调用，也不自动导入任何内容。
+
+实际 CLI 在临时 HOME 验证了新建配置默认开启、显式关闭、普通 configure 保留关闭、无需额外确认重新开启。真实 stdio self-test、版本一致性、Python AST、双 README 一致性和 git diff --check 通过。三平台 CI 与合并提交的最终证据记录于 [PR #4](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/4)。本轮没有安装或重启用户现有服务。
+
+## macOS 安装弹窗根因及修复
+
+默认值变更后的首次专项为 124 passed、6 skipped、1 failed；失败仍在安装测试。用户截图与 syspolicyd 日志对应同一临时 `versions/0.5.0-.../venv/bin/python`：日志明确出现 Prompt shown 和 Gatekeeper denial。副本与 Homebrew Python 3.14.6 的 SHA-256 相同、codesign 验证通过，但副本额外带 `com.apple.quarantine`（来源 Chrome），基础解释器无此标记。这给出了前期安装超时／-9 的具体解释，不再笼统归为未知环境问题。
+
+bootstrap 改为 POSIX 使用 `EnvBuilder(symlinks=True)`，Windows 保留复制。真实安装／重装测试在同一 Chrome 宿主环境 2.01 秒通过，同期系统日志无新 Prompt shown；新增断言验证两次安装均链接基础解释器，并验证默认开启及重装保留显式关闭。没有执行 xattr 清除、重新签名、关闭 Gatekeeper 或永久放行。系统弹窗 UI 读取超时，未宣称已操作关闭旧提示。
+
+修复后完整本机回归：`LOCAL_MCP_TEST_CODEX_HISTORY=1 .venv/bin/python -m pytest -q`，**318 passed、8 skipped，121.35 秒，退出码 0**。包含真实临时 HOME 的 Codex 导入读回，以及此前失败的离线安装／重装；没有排除或弱化失败用例。
+
+以下保留功能开发阶段的实际结果与失败记录；其中“候选／未合并／版本保持 0.4.1”为当时状态，不是 v0.5.0 的版本声明。
+
 # linked worktree 与 FileMCP 能力补齐候选（2026-09-28）
 
 分支 `feat/linked-worktree-filemcp`，基线 `e7542ebb28ebd228907be078ac90265e4f7a3abb`。独立克隆内修改；基础版本保留 0.4.1，未修改现有 MCP 安装、配置、凭据、自启或在线进程。

@@ -23,7 +23,7 @@ def test_real_stdio_core():
 def test_tool_annotations_and_readonly(space):
     protocol=Protocol(space[3])
     tools=call(protocol,'tools/list')['result']['tools']
-    assert len(tools)==38
+    assert len(tools)==39
     for t in tools:
         assert t['annotations']['readOnlyHint']==(t['name'] not in WRITES)
     space[2].mode='read_only'

@@ -1,13 +1,14 @@
-# 未发布：linked worktree 与 FileMCP 能力补齐
+# Changelog
+
+## v0.5.0 linked worktree 与 FileMCP 能力补齐 — 2026-09-28
 
 - Git 解析并验证标准 linked worktree，common dir 共享锁，当前工作树状态检查和配置解析；root/write_roots 不扩大。
 - 新增带备份及哈希前置条件的 delete_file/delete_directory；文本追加保留并发保护。
 - 搜索增加类型、跨行、独立前后上下文、单文件范围和不区分大小写的 brace glob。
-- 新增独立开关、默认关闭的 Codex 会话导入；新建会话、读回验证、持久 request_id 去重，不调用模型。
+- 新增默认开启、可独立关闭的 Codex 会话导入（仍要求 read_write；显式 false 配置继续保留）；新建会话、读回验证、持久 request_id 去重，不调用模型。
 - Windows 子进程先挂起、加入 Job Object 再恢复，修复快速 Git 子进程退出早于 Job 绑定的时序问题。
-- 基础版本仍为 0.4.1；未合并、未部署。完整差异和验收边界见 docs/FILEMCP_PARITY.md、TEST_REPORT.md。
-
-# Changelog
+- POSIX 安装 venv 使用已安装 Python 的符号链接，避免 Chrome 宿主给新建可执行副本附加 quarantine 后反复弹出 macOS Gatekeeper 提示；Windows 保留复制方式，不修改系统安全设置。
+- 版本从 0.4.1 提升至 0.5.0；源码更新不自动升级现有部署。完整差异和验收边界见 docs/FILEMCP_PARITY.md、TEST_REPORT.md。
 
 ## v0.4.1 分支操作与能力诊断 — 2026-09-27
 
