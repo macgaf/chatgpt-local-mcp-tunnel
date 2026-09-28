@@ -4,7 +4,7 @@
 
 代码版本：**v0.5.0** · 安装分支：**`main`** · 支持 macOS / Windows / Linux · 默认 HOME 只读
 
-v0.4.1 的受控分支操作、工作树配置兼容和能力诊断已通过 PR #3 合并至 main；见 [修复范围与限制](docs/GIT_CAPABILITIES.md)。v0.4.1 已完成当时授权机器的重新安装和 Tunnel 重启，实测范围与仍需刷新的客户端工具目录见 [部署验收记录](docs/DEPLOYMENT_20260927.md)；这不代表其他机器自动升级。
+v0.5.0 已通过 [PR #4](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/4) 合并至 main；代码验证见 [测试报告](TEST_REPORT.md)，Git 支持范围见 [能力说明](docs/GIT_CAPABILITIES.md)。[v0.4.1 部署验收记录](docs/DEPLOYMENT_20260927.md) 仅是历史记录，不代表现有服务已经安装 v0.5.0。
 
 [这是什么](#what) · [主要能力](#capabilities) · [配置网站](#platform) · [本机安装](#install) · [连接 ChatGPT](#connect-chatgpt) · [故障排查](#troubleshooting) · [Codex 激活与示例](#codex) · [ChatGPT 激活与示例](#chatgpt) · [日志](#logs) · [更新与升级](#upgrade)
 
@@ -100,7 +100,7 @@ ChatGPT 聊天窗口 → OpenAI Secure MCP Tunnel → 本机 MCP → 你授权�
 
 **执行条件与代码状态：**电脑工具负责普通界面，本机执行器负责探针与凭据保存；必须本人批准的系统授权仍交由本人完成。先实际检查工具和完整转存通道，不能以打开页面或点击次数代替结果验证。
 
-`tunnel prepare` 的候选实现位于 [`fix/browser-tunnel-preparation` / PR #2](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/2)，尚未合并且真实网站创建流程待验收。main 的文档同步不等于主线程序已经提供该命令；先核对实际提交和 --help，优先复用已有执行器，不强制切换有修改的工作区。细则见 [自动准备与安全保存](docs/AUTOMATED_TUNNEL_SETUP.md)。 **本次仅更新提示词和说明；现有候选执行器仍按 Restricted Read + Use 校验，All／永不过期及跨阶段单连接流程尚需实现与实测，不可把下方要求当作已支持功能。**
+`tunnel prepare` 的候选实现位于 [`fix/browser-tunnel-preparation` / PR #2](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/2)，尚未合并且真实网站创建流程待验收。main 的文档同步不等于主线程序已经提供该命令；先核对实际提交和 --help，优先复用已有执行器，不强制切换有修改的工作区。细则见 [自动准备与安全保存](docs/AUTOMATED_TUNNEL_SETUP.md)。 **这部分是网站准备流程的要求；现有候选执行器仍按 Restricted Read + Use 校验，All／永不过期及跨阶段单连接流程尚需实现与实测，不可把下方要求当作已支持功能。**
 
 | 网站入口 | 用途 |
 |---|---|
@@ -164,20 +164,20 @@ https://github.com/macgaf/chatgpt-local-mcp-tunnel
 
 **目录不固定为某个人的项目路径。**默认候选是本用户目录 `~/`（等同 `~/.`），也可选择任意已存在且有权访问的更具体目录。**只读和读写都可选，由用户在安装前确认**，不能因“本地编程”自动开写权限。
 
-**源码入口统一为 `main`。**v0.4.0 的编程工具、交互安装和持久日志已纳入主线；原功能分支不再作为安装入口。已有安装更新方式见 [第 3.7 节](#upgrade)。
+**源码入口统一为 `main`。**linked worktree、FileMCP 能力补齐及此前的编程工具、交互安装和持久日志均已纳入主线；原功能分支不再作为安装入口。已有安装更新方式见 [第 3.7 节](#upgrade)。
 
 **下面的提示词可直接复制，无须事先填写目录、模式、Tunnel ID 或 key：**
 
 ```text
 请在本机安装并配置 chatgpt-local-mcp-tunnel，不只是告诉我命令。
 仓库：https://github.com/macgaf/chatgpt-local-mcp-tunnel
-版本：v0.4.0（包含交互安装和持久日志），从 main 分支安装，并核对当前安装文档。
+版本：从 main 分支安装，读取 pyproject.toml 与 src/home_readonly_mcp/__init__.py 核对实际版本，记录源码 SHA，并核对当前安装文档。
 
 先通过交互确认以下非敏感选项；本次对话已经明确的选项直接复用，不重复询问：
 - 访问根目录：使用默认 ~/（本用户目录），还是我指定的其他目录？不要默认采用开发者个人目录。
 - 模式：只读 read_only，还是读写 read_write？说明区别后等我选择，未确认前不启用写入。
 - 若选读写：是整个所选 root 可写，还是只允许其中指定子目录？不自动扩大已选范围。若 root 是 HOME 且全部可写，单独说明并取得明确确认。
-命令执行和 Git 推送保持关闭。
+命令执行和 Git 推送保持关闭。读写模式下 Codex 会话导入默认开启；旧配置缺少该键采用新默认值，显式 enable_codex_history=false 则保留。导入仅在调用时新建项目 root 之外的 Codex 历史，不调用模型。
 
 Tunnel ID 和 Runtime API key 不在聊天中询问、填写或复述。先复用第 3.1 节由本机程序安全保存的配置和凭据；有可用缓存就不要再要求我输入。缺少时按第 3.1 节的授权执行自动准备，无法安全转存时才使用独立本机终端隐藏输入。不要通过工具参数/结果中转实际值。
 
@@ -203,7 +203,7 @@ Tunnel ID：优先复用/自动保存；隐藏输入仅备用，不出现在提�
 Runtime key：本机程序直接保存到系统凭据库，已有有效条目不重复录入
 ```
 
-首次未传 root/mode 时，程序的安全默认仍是 HOME 只读；后续升级会保留已有配置。**使用上述提示词时应先确认用户选项，不应靠默认值替用户作决定。**目录和权限可以在 Codex 对话中选择；ID/key 则不进入对话。
+首次未传 root/mode 时，程序的安全默认仍是 HOME 只读；后续升级保留已有显式配置，缺失键采用当前版本默认值。**使用上述提示词时应先确认用户选项，不应靠默认值替用户作决定。**目录和权限可以在 Codex 对话中选择；ID/key 则不进入对话。
 
 | 参数 | 如何确定 |
 |---|---|
@@ -212,6 +212,7 @@ Runtime key：本机程序直接保存到系统凭据库，已有有效条目不
 | `write_roots` | 读写时确认可写子目录；空列表意味着整个所选 root 可写，不可悄悄清空现有限制 |
 | `allow` / `deny` / `force_allow` | 保留现有文件规则；例外限具体文件，不因安装自动放宽 |
 | `enable_commands` / `enable_git_push` | 本安装流程关闭；日后需单独授权 |
+| `enable_codex_history` | 默认 true，仅在读写模式注册；保留已有显式 false，可在本机关闭 |
 | `tunnel_id` | 第 3.1 节核验后自动保存/复用；本机 `tunnel configure` 隐藏输入作为备用 |
 | `key_source` | 通常为 `keyring`；Runtime key 正文只入系统凭据库，不入 config.json |
 
@@ -309,6 +310,8 @@ Runtime key：本机程序直接保存到系统凭据库，已有有效条目不
 
 <a id="codex"></a>
 ### 3.4 在 Codex 中激活 MCP，并开始使用
+
+仓库提供 [local-mcp-setup Skill](skills/local-mcp-setup/SKILL.md) 作为安装规程；它依赖同仓库文档。安装器不会把它复制到用户 Skills 目录，克隆源码也不等于全局安装 Skill。
 
 安装器的 `--register-codex` 或本机 `local-mcp codex-install` 会调用 Codex 官方 CLI 注册 stdio 服务。它不会给 Codex 填入 Tunnel ID/API key；Codex 直接在本机启动服务。
 

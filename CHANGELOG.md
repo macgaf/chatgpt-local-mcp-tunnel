@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.5.0 说明同步 — 2026-09-28
+
+- 修正安装 Skill、排错表及 Git 说明中的旧 linked worktree 限制／候选状态；对齐当前主线。
+- 安装提示词改为读取实际主线版本；补齐会话导入默认值、显式关闭保留及 Skill 不随 MCP 自动安装的说明。
+- 工具数量以注册表和当前配置为依据，历史部署单独标识；补齐删除、导入与 Python Gatekeeper 的排错入口。
+- 修正会话导入禁用时的过期 opt-in 错误原因；执行条件不变。版本继续为 0.5.0，不重装或重启现有服务。
+
 ## v0.5.0 linked worktree 与 FileMCP 能力补齐 — 2026-09-28
 
 - Git 解析并验证标准 linked worktree，common dir 共享锁，当前工作树状态检查和配置解析；root/write_roots 不扩大。

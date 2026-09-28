@@ -1,5 +1,15 @@
 # v0.5.0 默认开启会话导入与合并验证（2026-09-28）
 
+## 信息一致性复核
+
+基于已合并的 `3fdb870`，核对全部 17 份 Markdown／文本中的本轮能力、默认值、版本、安装和发布状态。修正安装 Skill、README 内嵌安装提示词、Git／排错／自动准备说明的过期事实；标识旧部署记录的时间范围。源码仅修改会话导入禁用时的一条错误原因文案，权限及执行条件不变，版本保留 0.5.0。
+
+实际校验：90 个相对链接及锚点有效；双 README 和电脑工具版内嵌提示词一致；README 44 个工具与实际注册表一致；16 组 mode／Shell／push／history 组合数量吻合；配置样例、版本、AST 和 git diff --check 通过。完整本机回归（包含真实临时 HOME 的 Codex 导入）**318 passed、8 skipped，118.45 秒，退出码 0**；真实 stdio CLI self-test 通过。未重装或重启用户服务。
+
+## v0.5.0 功能合并证据
+
+v0.5.0 已由 [PR #4](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/4) 合并到 main，合并提交 `3fdb870337665ad4557b7c3998f295ca48c8fba7`，源码树与已测试 `f0b7b69` 一致。[PR CI](https://github.com/macgaf/chatgpt-local-mcp-tunnel/actions/runs/36370304235) 和 [push CI](https://github.com/macgaf/chatgpt-local-mcp-tunnel/actions/runs/36370302098) 六项检查全部通过；PR CI：Ubuntu 318 passed / 8 skipped、macOS 317 passed / 9 skipped、Windows 318 passed / 8 skipped，三平台 CLI self-test 通过。该记录不代表用户现有部署已升级。
+
 用户授权将 Codex 会话导入默认开启、提升版本并在验证后合并 main。源码版本统一为 0.5.0；read_write 默认注册 39 个工具，read_only 仍为 25 个。缺省配置使用新默认值，显式 false 保留；导入不开启模型调用，也不自动导入任何内容。
 
 实际 CLI 在临时 HOME 验证了新建配置默认开启、显式关闭、普通 configure 保留关闭、无需额外确认重新开启。真实 stdio self-test、版本一致性、Python AST、双 README 一致性和 git diff --check 通过。三平台 CI 与合并提交的最终证据记录于 [PR #4](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/4)。本轮没有安装或重启用户现有服务。
