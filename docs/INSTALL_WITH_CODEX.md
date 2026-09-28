@@ -28,6 +28,10 @@ POSIX 安装环境通过符号链接复用基础 Python；Windows 保留复制�
 
 Chrome 宿主中创建的 Python 可执行副本可能带 `com.apple.quarantine`，即使哈希与基础解释器相同且签名有效，也可能触发 Gatekeeper 的“未打开 python”。遇到这种弹窗应先停止相关重试，核对具体副本、扩展属性及系统日志；不要反复运行该副本，也不要批量清除属性、重新签名或关闭 Gatekeeper。使用链接已有可用解释器的新环境，再验证安装和重装。旧弹窗可选择“完成”，不需要把基础 Python 移到废纸篓。
 
+同样的隔离标记也可能落在 Pillow 的 `_imaging*.so` 或 PDFium 动态库上。修复后的 macOS 完整安装器只从官方 PyPI 下载兼容 wheel，以 PyPI 发布元数据的 SHA256 校验每个包，再比对新 venv 内所有 `.so`／`.dylib` 的实际字节与 wheel 内容。全部校验通过后，仅移除这些文件的 `com.apple.quarantine`；保留其他属性、系统策略、原有安装及外部文件。校验失败、未知原生文件、链接或不支持的布局均停止安装，不降级为批量放行。此哈希验证不等于 Apple 公证或安全审计。
+
+完整安装在切换 `current.json` 前执行 `media-self-test`：实际 JPEG 解码、PDF 渲染／文字提取及 ImageContent 校验；失败保留原启动版本。`doctor` 的 `media_runtime` 使用同一子进程探针，超时或原生崩溃明确失败；缺少可选组件显示 warning，不代表媒体通过。`--core-only` 仍只验收核心，不宣称图片／PDF 可用。媒体可用性与客户端真正看见图片继续分别验收。
+
 ## 目录和权限由用户选择
 
 默认候选 `~/`（等同 `~/.`），也可以指定更具体的现有目录。用户选择 `read_only` 或 `read_write`；已有明确选择不重复问。读写时确认 write_roots，HOME 全范围可写需明确确认。网站资源准备不等于授权本机文件读写。

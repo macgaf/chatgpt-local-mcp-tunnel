@@ -118,6 +118,10 @@ FileMCP 原作可能报 `Command session is active; finish or cancel it before f
 
 先核对被拦截的具体路径；Chrome 宿主创建的 Python 副本可能带 quarantine，不能仅凭弹窗认定基础 Python 损坏。当前 POSIX 安装器使用符号链接复用已有解释器。停止重复运行受阻副本，按 [安装说明](INSTALL_WITH_CODEX.md#macos-python-验证弹窗) 检查并验证安装／重装，不关闭系统安全检查。
 
+若名称为 `_imaging*.so` 或 PDFium 动态库，则是媒体原生依赖被隔离。新版在加载前返回 `DEPENDENCY_QUARANTINED`，避免反复弹窗；用完整安装器按官方 wheel 校验后重新安装。`DEPENDENCY_MISSING` 表示顶层依赖不存在；`DEPENDENCY_LOAD_FAILED` 表示内部模块、动态库或架构加载失败，不能一概按“没装包”处理。媒体子进程超时／崩溃分别报告 `MEDIA_SELF_TEST_TIMEOUT`／`MEDIA_SELF_TEST_FAILED`。
+
+执行 `local-mcp media-self-test` 验证 JPEG、PDF 和图片内容返回；`doctor` 的 `media_runtime=pass` 才是媒体服务端可用证据。随后用实际客户端调用 `read_image`／`render_pdf_page`；`self-test` 的文本握手不能替代媒体验收。
+
 ## main 已更新，但本机仍是旧功能
 
 先确认本机仓库的 origin、分支和 HEAD。安装来源应为 `main`；不要再按旧文档回退到功能分支。工作区有未提交修改或本地 main 分叉时停止更新，不强制覆盖。

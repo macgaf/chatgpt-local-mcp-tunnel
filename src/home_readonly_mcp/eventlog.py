@@ -29,6 +29,11 @@ MAX_TAIL = 5000
 MAX_READ = 8 * 1024 * 1024
 # All values in free-text messages are owned by the program, never user input.
 CAUSES = {
+    'DEPENDENCY_MISSING': ('媒体依赖未安装。', '运行完整安装器，再执行 media-self-test。'),
+    'DEPENDENCY_QUARANTINED': ('原生依赖带 macOS 隔离标记，加载前已停止。', '使用新版完整安装器校验并重装，不反复触发弹窗。'),
+    'DEPENDENCY_LOAD_FAILED': ('依赖已安装但原生库加载失败。', '核对系统拦截、架构和库完整性，再执行 media-self-test。'),
+    'MEDIA_SELF_TEST_FAILED': ('媒体子进程异常退出。', '检查系统诊断和原生库；不切换安装版本。'),
+    'MEDIA_SELF_TEST_TIMEOUT': ('媒体子进程自检超时。', '检查系统弹窗和依赖；不反复重试。'),
     'FILE_LOCKED': ('另一个本服务操作持有目标文件写锁。', '核对 holder_pid；等待操作完成，不删除锁文件。'),
     'WORKSPACE_COMMAND_ACTIVE': ('相交工作区存在活动命令。', '检查 session_id，等待或取消自己的任务。'),
     'OS_FILE_BUSY': ('操作系统报告文件忙；外部持有者无法可靠判断。', '检查相关应用或系统文件锁，不杀未知进程。'),

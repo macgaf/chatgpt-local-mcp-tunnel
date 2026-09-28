@@ -25,7 +25,7 @@ description: 安装、升级、诊断本机 MCP，并在用户明确授权时自
 
 人工隐藏输入为备用：本人独立终端 tunnel configure、key status、key set。不通过 write_stdin/命令参数转发实际值；无 TTY 不回退明文。登录、验证码、系统库解锁、管理员权限和真实歧义保留本人处理；其他独立步骤继续。
 
-先真实 self-test，凭据就绪后 tunnel init、doctor --with-tunnel。key status 仅证明本地可读；认证、权限、客户端连接分别验收。不为试 key 调付费模型 API。未执行不标通过，不无授权留常驻任务。最终输出配置/日志位置和状态，不输出完整或部分 ID/key。
+先真实 self-test；完整安装还必须通过 media-self-test（JPEG 解码、PDF 渲染及 ImageContent），再核对 doctor 的 media_runtime。macOS 出现 Python／_imaging／PDFium 拦截时，先读 docs/INSTALL_WITH_CODEX.md 的“macOS Python 验证弹窗”，停止重复加载，使用校验官方 wheel 的安装器重装。凭据就绪后 tunnel init、doctor --with-tunnel。key status 仅证明本地可读；认证、权限、客户端连接分别验收。不为试 key 调付费模型 API。未执行不标通过，不无授权留常驻任务。最终输出配置/日志位置和状态，不输出完整或部分 ID/key。
 
 文件任务优先真实 MCP：文本 read_file，图片 read_image，PDF render_pdf_page，ZIP list_archive/read_archive_member，visual_probe 验证视觉；资源 URI 不是 sandbox 路径。错误保留 cause/remediation，不删除活锁、杀未知 PID 或强行刷新哈希覆盖。
 

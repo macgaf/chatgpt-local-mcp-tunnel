@@ -1,5 +1,11 @@
 # Changelog
 
+## 未发布：macOS 原生媒体验收修复
+
+- macOS 完整安装校验官方 PyPI wheel SHA256 与安装后的原生库字节，仅定向处理新环境内原生库的 quarantine；不修改系统安全策略。
+- 新增 `media-self-test`，实际 JPEG 解码、PDF 渲染／文字提取和 ImageContent 校验，完整安装通过后才切换版本；doctor 同步检查。
+- 媒体按需加载前检测隔离标记，区分缺失、被隔离和加载失败；完善错误日志、安装说明和 Skill。基础版本保留 0.5.0。
+
 ## v0.5.0 说明同步 — 2026-09-28
 
 - 修正安装 Skill、排错表及 Git 说明中的旧 linked worktree 限制／候选状态；对齐当前主线。

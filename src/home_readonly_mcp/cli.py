@@ -73,12 +73,13 @@ def self_test():
 def doctor(config_path, with_tunnel=False, network=False):
     checks = []
     audit = EventLog(config_path)
-    def check(name, fn, required=True):
+    def check(name, fn, required=True, optional_codes=()):
         try:
             details = fn()
             audit.emit('cli','diagnostic_check',stage=name,ok=True)
             checks.append({'name':name,'status':'pass','details':details})
         except Exception as exc:
+            required = required and normalize_error(exc).code not in optional_codes
             audit.emit('cli','diagnostic_check','ERROR' if required else 'WARNING',stage=name,ok=False,**error_fields(exc))
             checks.append({'name':name,'status':'fail' if required else 'warning',
                            'error':normalize_error(exc).payload()['error']})
@@ -95,7 +96,9 @@ def doctor(config_path, with_tunnel=False, network=False):
             service.close()
     check('tool_capabilities',local_capabilities)
     check('stdio_handshake',self_test)
-    for package in ('PIL','pypdfium2','keyring'):
+    from .dependencies import media_probe
+    check('media_runtime', media_probe, optional_codes=('DEPENDENCY_MISSING',))
+    for package in ('keyring',):
         found = importlib.util.find_spec(package) is not None
         checks.append({'name':'dependency_'+package,'status':'pass' if found else 'warning',
                        'details':'installed' if found else '重新运行安装脚本安装 media/keyring 组件'})
@@ -128,6 +131,7 @@ def parser():
     subs = p.add_subparsers(dest='command',required=True)
     subs.add_parser('server',help='启动 stdio MCP；stdout 只输出协议')
     subs.add_parser('self-test',help='使用临时文件验证真实 stdio 握手')
+    subs.add_parser('media-self-test',help='实际解码 JPEG、渲染 PDF 并校验 ImageContent')
     conf = subs.add_parser('configure',help='本机设置 root、模式与 Tunnel 参数')
     conf.add_argument('--root')
     conf.add_argument('--mode',choices=['read_only','read_write'])
@@ -230,6 +234,9 @@ def main(argv=None):
             return 0
         if args.command=='self-test':
             result = self_test()
+        elif args.command=='media-self-test':
+            from .dependencies import media_probe
+            result = media_probe()
         elif args.command=='configure':
             result = configure(args.config,root=args.root,mode=args.mode,tunnel_id=args.tunnel_id,
                                key_source=args.key_source,allow_home_write=args.allow_home_write,

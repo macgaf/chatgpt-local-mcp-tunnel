@@ -1,3 +1,15 @@
+# macOS 原生媒体修复验证（2026-09-28，修复分支）
+
+分支 `fix/macos-native-media`，基于 main `64108d5`，基础版本保留 0.5.0。本节记录源码修复和本机部署；主线发布以对应 PR 的合并状态为准。
+
+- 原始故障：15:37:29 系统对 `_imaging.cpython-314-darwin` 显示 Gatekeeper 提示，15:37:56 MCP `read_image` 失败。Pillow 已安装，但原生库带 Chrome 来源的 quarantine；旧代码把加载失败报为 DEPENDENCY_MISSING，doctor 只检查模块存在。
+- 专项回归：**88 passed、1 skipped**。包含真实 macOS 合成文件隔离属性检查／定向移除／其他属性保留，篡改时不部分放行，符号链接拒绝，官方 wheel 哈希不符拒绝，以及媒体失败时不切换安装指针。
+- 完整本机回归：`python -m pytest -q`，**329 passed、9 skipped，115.15 秒，退出码 0**。本轮未显式启用真实 Codex 会话导入测试；Windows 专用用例在本机跳过，其他平台结果由 CI 单独记录。
+- 本机完整安装：8 个官方 PyPI wheel 校验通过，**27 个原生 `.so`／`.dylib`** 字节与对应 wheel 一致，定向移除这 27 个新安装文件上的 quarantine。保留其他属性、系统策略和旧安装；没有修改系统 Python。实际 JPEG 解码、PDF 渲染／文字提取及 ImageContent 自检通过后才切换启动器；真实 stdio self-test 通过。
+- 重启原 LaunchAgent 后，Tunnel 的 main 通道 `probe_status=ok`，原生启动日志 214 条 INFO，成功获取远端元数据。`doctor --with-tunnel` 通过，`enable_commands=true`、原 HOME 读写配置及 Git push 关闭状态保留。
+- 额外通过实际安装启动器的 stdio `tools/call` 调用 `read_image` 和 `render_pdf_page`：合成 JPEG 返回 120×60 ImageContent，PDF 返回 320×160 ImageContent；解码查看分别为红绿蓝色块和“MCP media test”文字。此项是本机 MCP 协议与图片内容验证，不冒充 ChatGPT 云端客户端视觉验收。
+- 修复期间系统日志显示新 Pillow/PDFium 扫描通过，所查记录没有新的相关 Prompt shown 或 denial。旧 Codex 会话仍需重连以加载新进程；未终止其他客户端持有的旧实例。
+
 # v0.5.0 默认开启会话导入与合并验证（2026-09-28）
 
 ## 信息一致性复核

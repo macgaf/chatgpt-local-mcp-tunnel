@@ -187,7 +187,7 @@ Tunnel ID 和 Runtime API key 不在聊天中询问、填写或复述。先复�
 4. 根据我的选择设置 root、mode、write_roots，明确关闭命令和推送；保留其他 MCP 条目、启动器、凭据来源及无关设置。同名配置冲突时比较差异，不覆盖整个 Codex 配置。不要打印包含真实 ID/key 的配置全文。
 5. 使用安装器输出的 local-mcp 绝对路径，先核验已有 Tunnel 配置。第 3.1 节若只生成了本机准备状态，由本机辅助程序核验目标后导入 config.json，保留其他设置；不要假定安装器会自动识别辅助程序的状态文件。已有正确绑定则跳过 tunnel configure，不要求重新录入 ID。
 6. 运行 key status，确认当前运行器能从正确的系统凭据库条目读取 Runtime key；此前自动保存且可读的 key 直接复用，跳过 key set。缺失时按第 3.1 节继续自动创建/保存；无安全转存通道时才安排本人独立终端隐藏输入。库锁定是授权问题，不是不存在，不因此新建 key。Linux 无桌面保留原 systemd 方案，不明文回退。
-7. 运行 self-test；ID及凭据就绪后再运行 tunnel init、doctor --with-tunnel，逐项检查退出码和结果。需本人输入/授权的步骤暂停，但继续完成不受影响的检查。输出、诊断和最后报告均不要包含 ID/key 正文。
+7. 运行 self-test 和 media-self-test（完整安装必须通过 JPEG/PDF 实测）；ID及凭据就绪后再运行 tunnel init、doctor --with-tunnel，逐项检查退出码和结果。需本人输入/授权的步骤暂停，但继续完成不受影响的检查。输出、诊断和最后报告均不要包含 ID/key 正文。
 8. 初始化和诊断通过后，给出独立本机终端中 tunnel run 的完整命令。不自动开机自启，不将开始运行当成 ChatGPT 已连接。
 
 最后报告：版本、启动器和配置路径、实际 root/mode/write_roots/开关、Codex注册结果、Tunnel是否已配置及诊断结果，以及第3.2.1节 ChatGPT 接续、第3.4节 Codex 本地连接尚待完成的验收。ID/key只报告状态，不显示正文或尾号。
@@ -236,6 +236,7 @@ Runtime key：本机程序直接保存到系统凭据库，已有有效条目不
 
 ```bash
 ~/.local/bin/local-mcp self-test
+~/.local/bin/local-mcp media-self-test
 ~/.local/bin/local-mcp tunnel init
 ~/.local/bin/local-mcp doctor --with-tunnel
 ```
@@ -443,7 +444,7 @@ local-mcp logs configure --level INFO --max-mib 5 --keep 5 --days 14
 3. 条件满足时切换到 main，并只做快进更新。原 feat/local-mcp-v0.3 分支无需删除，也不再作为安装来源。
 4. 阅读 main 的 README、bootstrap.py 和 docs/INSTALL_WITH_CODEX.md。保留用户已选 root、mode、write_roots、文件规则、密钥来源、日志设置、Codex 中其他条目和无关配置。不要因升级自动开启命令或 Git 推送，也不要擅自收回已有明确授权；需要改变权限时先让我确认。
 5. 先运行安装计划，再执行对应平台的完整安装器；不要用 core-only 替代已有媒体依赖，也不要覆盖同名但不同的 Codex 条目。已有正确 Tunnel 和凭据优先复用，不把实际值带进聊天或命令参数。
-6. 运行 self-test，检查 logs path、logs show；凭据可用时再运行 doctor --with-tunnel。安装器检查失败时，不把它记为升级成功。
+6. 运行 self-test 和 media-self-test，检查 logs path、logs show；凭据可用时再运行 doctor --with-tunnel。安装器检查失败时，不把它记为升级成功。
 7. 提醒我结束并重启自己管理的旧 MCP／Tunnel 进程，刷新 Codex／ChatGPT 的工具列表；不擅自终止未知进程，不建立开机自启。
 
 报告源码提交、安装版本、启动器和配置路径、实际权限开关、日志位置，以及哪些客户端验收完成或仍未执行。不要输出 Tunnel ID/key 正文或尾号。
