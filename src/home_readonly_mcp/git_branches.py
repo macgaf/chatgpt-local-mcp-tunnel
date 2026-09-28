@@ -2,6 +2,7 @@
 from __future__ import annotations
 import re
 from .errors import Fault
+from .git_layout import layout
 
 
 class BranchActions:
@@ -32,14 +33,15 @@ class BranchActions:
                 'detached_head': not bool(ref), 'unborn_head': code != 0}
 
     def _clean_branch_state(self, repo, expected_head=None):
-        gitdir = repo / '.git'
+        gitdir, common = layout(self.policy, repo)
         markers = ('MERGE_HEAD', 'CHERRY_PICK_HEAD', 'REVERT_HEAD', 'REBASE_HEAD',
                    'rebase-apply', 'rebase-merge', 'sequencer', 'BISECT_LOG')
         if any((gitdir / name).exists() for name in markers):
             raise Fault('GIT_OPERATION_IN_PROGRESS', '仓库有尚未完成的 Git 操作。',
                         'merge/rebase/cherry-pick/revert/bisect state is present',
                         '先在本机完成或取消原操作；不会自动 abort、stash 或 reset。')
-        if any((gitdir / name).exists() for name in ('index.lock', 'HEAD.lock', 'packed-refs.lock')):
+        if any((base / name).exists() for base in {gitdir, common}
+               for name in ('index.lock', 'HEAD.lock', 'packed-refs.lock')):
             raise Fault('GIT_LOCKED', 'Git 索引或引用锁被占用。', 'existing Git lock',
                         '检查持锁进程；不会自动删除锁。', retryable=True, holder='unknown')
         info = self._head_info(repo)

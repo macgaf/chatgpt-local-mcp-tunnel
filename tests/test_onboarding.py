@@ -167,6 +167,12 @@ def test_real_offline_install_and_reinstall(space):
     one=subprocess.run(argv,text=True,encoding='utf-8',capture_output=True,timeout=30)
     assert one.returncode==0,one.stdout+one.stderr
     cfg=locations()[0]/'config.json'
+    pointer=locations()[1]/'current.json'
+    installed_python=Path(json.loads(pointer.read_text(encoding='utf-8'))['python'])
+    assert installed_python.is_symlink()
+    assert installed_python.resolve()==Path(sys._base_executable).resolve()
+    assert onboarding.load_settings(cfg)['enable_codex_history'] is True
+    onboarding.configure(cfg,enable_codex_history=False)
     before=onboarding.launch_argv(cfg)
     wrapper=space[0]/'.local/bin/local-mcp'
     run=subprocess.run([str(wrapper),'self-test'],capture_output=True,text=True,encoding='utf-8',timeout=15)
@@ -175,6 +181,10 @@ def test_real_offline_install_and_reinstall(space):
     assert two.returncode==0,two.stdout+two.stderr
     assert onboarding.launch_argv(cfg)==before
     assert onboarding.load_settings(cfg)['mode']=='read_write'
+    assert onboarding.load_settings(cfg)['enable_codex_history'] is False
+    reinstalled_python=Path(json.loads(pointer.read_text(encoding='utf-8'))['python'])
+    assert reinstalled_python.is_symlink()
+    assert reinstalled_python.resolve()==installed_python.resolve()
 
 
 @pytest.mark.parametrize('platform_name',['darwin','win32'])

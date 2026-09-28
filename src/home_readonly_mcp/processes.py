@@ -28,7 +28,7 @@ class ProcessJob:
         self.stop_requested = threading.Event()
         self.stop_reason = None
         flags = ({'start_new_session': True} if os.name != 'nt' else
-                 {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP})
+                 {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP | 0x00000004})  # CREATE_SUSPENDED
         self.proc = subprocess.Popen(argv, cwd=cwd, env=env, stdin=subprocess.DEVNULL,
                                      stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                      bufsize=0, **flags)
@@ -221,8 +221,60 @@ class WindowsJob:
             raise c.WinError(c.get_last_error())
         if (not self.k.SetInformationJobObject(self.handle,9,c.byref(limits),c.sizeof(limits)) or
                 not self.k.AssignProcessToJobObject(self.handle,w.HANDLE(int(process._handle)))):
+            error = c.get_last_error()
             self.close()
+            raise c.WinError(error)
+        try:
+            self._resume_primary_thread(process.pid)
+        except Exception:
+            self.close()
+            raise
+
+    def _resume_primary_thread(self, pid):
+        """只恢复本次 CREATE_SUSPENDED 创建且已加入 Job 的唯一主线程。"""
+        import ctypes as c
+        from ctypes import wintypes as w
+        class ThreadEntry(c.Structure):
+            _fields_ = [('dwSize', w.DWORD), ('cntUsage', w.DWORD), ('thread_id', w.DWORD),
+                        ('owner_pid', w.DWORD), ('base_priority', w.LONG),
+                        ('delta_priority', w.LONG), ('flags', w.DWORD)]
+        k = self.k
+        k.CreateToolhelp32Snapshot.argtypes = [w.DWORD, w.DWORD]
+        k.CreateToolhelp32Snapshot.restype = w.HANDLE
+        k.Thread32First.argtypes = k.Thread32Next.argtypes = [w.HANDLE, c.POINTER(ThreadEntry)]
+        k.Thread32First.restype = k.Thread32Next.restype = w.BOOL
+        k.OpenThread.argtypes = [w.DWORD, w.BOOL, w.DWORD]
+        k.OpenThread.restype = w.HANDLE
+        k.GetProcessIdOfThread.argtypes = [w.HANDLE]
+        k.GetProcessIdOfThread.restype = w.DWORD
+        k.ResumeThread.argtypes = [w.HANDLE]
+        k.ResumeThread.restype = w.DWORD
+        snapshot = k.CreateToolhelp32Snapshot(0x00000004, 0)  # TH32CS_SNAPTHREAD
+        if snapshot == c.c_void_p(-1).value:
             raise c.WinError(c.get_last_error())
+        found = []
+        try:
+            entry = ThreadEntry(); entry.dwSize = c.sizeof(entry)
+            present = k.Thread32First(snapshot, c.byref(entry))
+            while present:
+                if entry.owner_pid == pid: found.append(entry.thread_id)
+                entry.dwSize = c.sizeof(entry)
+                present = k.Thread32Next(snapshot, c.byref(entry))
+            if c.get_last_error() != 18:  # ERROR_NO_MORE_FILES
+                raise c.WinError(c.get_last_error())
+        finally:
+            k.CloseHandle(snapshot)
+        if len(found) != 1:
+            raise OSError('suspended owned process must have exactly one primary thread')
+        thread = k.OpenThread(0x0002 | 0x0800, False, found[0])  # RESUME + QUERY_LIMITED_INFORMATION
+        if not thread: raise c.WinError(c.get_last_error())
+        try:
+            if k.GetProcessIdOfThread(thread) != pid:
+                raise OSError('primary thread ownership changed')
+            if k.ResumeThread(thread) != 1:
+                raise OSError('unexpected primary thread suspend count')
+        finally:
+            k.CloseHandle(thread)
 
     def terminate(self):
         if self.handle:

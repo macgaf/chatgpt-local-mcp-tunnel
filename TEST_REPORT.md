@@ -1,3 +1,54 @@
+# v0.5.0 默认开启会话导入与合并验证（2026-09-28）
+
+用户授权将 Codex 会话导入默认开启、提升版本并在验证后合并 main。源码版本统一为 0.5.0；read_write 默认注册 39 个工具，read_only 仍为 25 个。缺省配置使用新默认值，显式 false 保留；导入不开启模型调用，也不自动导入任何内容。
+
+实际 CLI 在临时 HOME 验证了新建配置默认开启、显式关闭、普通 configure 保留关闭、无需额外确认重新开启。真实 stdio self-test、版本一致性、Python AST、双 README 一致性和 git diff --check 通过。三平台 CI 与合并提交的最终证据记录于 [PR #4](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/4)。本轮没有安装或重启用户现有服务。
+
+## macOS 安装弹窗根因及修复
+
+默认值变更后的首次专项为 124 passed、6 skipped、1 failed；失败仍在安装测试。用户截图与 syspolicyd 日志对应同一临时 `versions/0.5.0-.../venv/bin/python`：日志明确出现 Prompt shown 和 Gatekeeper denial。副本与 Homebrew Python 3.14.6 的 SHA-256 相同、codesign 验证通过，但副本额外带 `com.apple.quarantine`（来源 Chrome），基础解释器无此标记。这给出了前期安装超时／-9 的具体解释，不再笼统归为未知环境问题。
+
+bootstrap 改为 POSIX 使用 `EnvBuilder(symlinks=True)`，Windows 保留复制。真实安装／重装测试在同一 Chrome 宿主环境 2.01 秒通过，同期系统日志无新 Prompt shown；新增断言验证两次安装均链接基础解释器，并验证默认开启及重装保留显式关闭。没有执行 xattr 清除、重新签名、关闭 Gatekeeper 或永久放行。系统弹窗 UI 读取超时，未宣称已操作关闭旧提示。
+
+修复后完整本机回归：`LOCAL_MCP_TEST_CODEX_HISTORY=1 .venv/bin/python -m pytest -q`，**318 passed、8 skipped，121.35 秒，退出码 0**。包含真实临时 HOME 的 Codex 导入读回，以及此前失败的离线安装／重装；没有排除或弱化失败用例。
+
+以下保留功能开发阶段的实际结果与失败记录；其中“候选／未合并／版本保持 0.4.1”为当时状态，不是 v0.5.0 的版本声明。
+
+# linked worktree 与 FileMCP 能力补齐候选（2026-09-28）
+
+分支 `feat/linked-worktree-filemcp`，基线 `e7542ebb28ebd228907be078ac90265e4f7a3abb`。独立克隆内修改；基础版本保留 0.4.1，未修改现有 MCP 安装、配置、凭据、自启或在线进程。
+
+## 本机实际结果
+
+- `da219a9` 的 PR CI run 36342227000 三平台通过（Ubuntu 317/8、macOS 316/9、Windows 317/8，分别为 passed/skipped）；同提交 push run 36342224608 Windows 为 316 passed、8 skipped、1 failed，唯一失败是原有日志跟随测试少读一条。测试在 `tail=0` 初始快照完成前开始写入，记录可能被视为旧记录跳过；改为用事件等待空快照完成再写入，仍要求 70 条全部且唯一，并逐次检查写入成功。本机日志专项 30 passed；修正后的跨平台结果以 PR 最终 CI 为准。
+
+- 新文件/Git/搜索/协议专项：50 passed，退出码 0（依赖补齐后的记录）。
+- 完整集合：`LOCAL_MCP_TEST_CODEX_HISTORY=1 .venv/bin/python -m pytest -q --tb=short`，315 passed、6 skipped、1 failed，145.66 秒；退出码 1，不能称为完整本机验收通过。
+- 唯一失败为 `test_real_offline_install_and_reinstall`：临时安装器 30 秒超时。相同测试在未修改 origin/main 的独立源码副本也超时；临时安装的复制型 Python 连 `-V` 探针也曾返回 -9。沙箱外复测仍超时，准确 OS 根因未确认，没有归因为本轮代码，也没有修改安装器或弱化断言。
+- 真实 CLI `python -m home_readonly_mcp.cli self-test`：在临时 HOME 执行，退出码 0；legacy handshake、modern discovery、read roundtrip、只读隐藏写工具、目录指纹一致性全部通过。
+- Codex 0.157.0 实际 app-server：临时 HOME 新建会话、写入中文 user/assistant 消息、新进程 resume/turns-list 逐条一致；未调用模型。该真实测试显式由 LOCAL_MCP_TEST_CODEX_HISTORY=1 启用，普通 CI 没有 Codex 时跳过，不将替身验证算实机。
+- Python AST、两份 README 一致性和 git diff --check 通过。
+
+最后 Git 路径权限预检与 Codex 子进程组清理改动后，Git／linked worktree／Codex 导入／文件／搜索／协议相关复测为 **150 passed in 103.52s**，退出码 0，包含真实 Codex 导入。文档及 onboarding／协议／交互配置相关检查为 **45 passed、1 skipped、1 deselected**（显式排除上述安装环境失败项），退出码 0。各轮重叠用例不相加。远端三平台 CI 以本候选实际提交为准；不用历史 main 的 CI 代替。
+
+## 首轮远端 CI 与夹具修订
+
+代码提交 `b71bdea698b8416847fd639a354343fe5bde7d52` 的 [Actions run 36341050300](https://github.com/macgaf/chatgpt-local-mcp-tunnel/actions/runs/36341050300) 中 Ubuntu、macOS 的完整 pytest 和 self-test 通过，包含本机失败的安装测试。Windows 为 310 passed、8 skipped、4 failed：两项新增夹具使用系统默认编码读取 UTF-8 中文，两项使用 CREATE_ALWAYS 覆盖 Git 创建的隐藏 .git 文件而被 Windows 拒绝。改为显式 UTF-8 读取、r+b 原地改写测试指针；另沿编码路径检查了备份恢复：备份元数据本来写为 UTF-8，现在显式按 UTF-8 读取，新增中文文件名删除／恢复回归；会话 journal 读取也显式指定 UTF-8。权限检查不变，修订后以新提交 CI 为准。
+
+修订 `5acc87b` 的两轮 CI 中，新夹具及中文文件名恢复均通过；Windows 各剩一个相同的旧 Git 测试失败，日志为快速 Git 进程已经退出 0、AssignProcessToJobObject 返回 WinError 5。没有跳过该断言或去掉 Job 隔离：后续改为 CREATE_SUSPENDED → Job 绑定 → 验证主线程归属并 ResumeThread，绑定失败则终止挂起进程；新增 Windows 专用测试人为延迟 Job 绑定并验证命令在绑定前不执行。macOS/Linux 不走该路径。后续 CI 结果以包含此修复的提交为准。
+
+本机既有 `chatgpt-local-mcp-tunnel-fix-git-capabilities-20260927` 工作树也由新代码在 read_only 策略下真实读取成功：分支 `fix/git-capabilities-20260927`，HEAD 为 `f6ef1641ebf690f6d435932ca02c8b63ff174560`，无状态条目及截断；未修改该工作树。
+
+## 覆盖与边界
+
+真实 Git linked worktree 的 status/log/diff/add/commit/create/switch、独立索引、共享 lease、主库写权限、root 外拒绝、相对 gitfile、工作树配置、反向关联、危险配置及对象 alternates；普通仓库已有回归继续运行。
+
+文件追加的哈希冲突、大小限制及备份；删除的预览、备份恢复、目录清单冲突、受保护条目整批拒绝、部分失败清单；搜索类型、跨行、前后独立上下文、brace glob 和单文件路径；Codex 独立开关、启用确认、请求去重、失败不重试、只写新历史及真实读回。
+
+没有真实网络 Git push、用户现有 Codex 历史写入、用户安装升级或 Tunnel/ChatGPT 新工具目录验收。候选源码通过不等于在线服务升级。比较范围与语义差异见 [FILEMCP_PARITY.md](docs/FILEMCP_PARITY.md)。
+
+---
+
 # v0.4.1 合并与部署补记（2026-09-27）
 
 用户明确授权合并、重新安装和重启后，PR #3 已合并为 `2bb42104b5091a68d1b31f6954ed157db1f299aa`，合并树与三平台测试通过的 `f6ef1641ebf690f6d435932ca02c8b63ff174560` 一致。安装复制的20个 Python 文件与该源码逐一一致；通过现有 LaunchAgent 重启后，ChatGPT 真实调用 policy_info 已返回0.4.1 / 36个服务端工具，git_status 原故障项目成功，临时文件真实写入和读回哈希一致。完整部署范围、配置保持及客户端目录待刷新事项见 docs/DEPLOYMENT_20260927.md。以下保留修复开发时的原始记录，不把当时尚未部署的描述当作当前状态。

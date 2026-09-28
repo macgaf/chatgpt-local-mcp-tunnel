@@ -42,7 +42,7 @@ LINE = {'type': 'integer', 'minimum': 1}
 NULL_HASH = {'type': ['string','null'], 'maxLength': 64}
 FIELDS = {'path': S, 'pattern': S, 'query': S, 'glob': S, 'content': TEXT,
     'old_text': TEXT, 'new_text': TEXT, 'data_base64': {'type':'string','maxLength':11*1024*1024},
-    'expected_sha256': NULL_HASH, 'dry_run': B, 'case_sensitive': B, 'offset': I,
+    'expected_sha256': NULL_HASH, 'dry_run': B, 'append': B, 'case_sensitive': B, 'offset': I,
     'length': {'type':'integer','minimum':1,'maximum':524288},
     'limit': {'type':'integer','minimum':1,'maximum':500},
     'max_results': {'type':'integer','minimum':1,'maximum':200},
@@ -70,7 +70,10 @@ DESCRIPTIONS = {
     'read_archive_member':'直接读取 ZIP 成员：文本、图片、PDF 页面或二进制资源。无需上传整个 ZIP。',
     'read_binary':'传输有哈希校验的分块 EmbeddedResource；客户端须支持二进制资源才能自动落盘。',
     'diagnose':'分别诊断能力、目标文件写权限、Git 兼容性及本服务锁；不会试写、取消或解锁未知进程。',
-    'write_file':'创建/覆盖 UTF-8 文件；已有文件必须带 expected_sha256，写前备份，写后校验。',
+    'write_file':'创建/覆盖/追加 UTF-8 文件；已有文件必须带 expected_sha256，写前备份，写后校验。',
+    'save_conversation_to_codex':'将给定 user/assistant 消息保存为新 Codex 会话并读回验证；读写模式下默认开启，可在本机关闭，写入项目外的 Codex 历史，不调用模型。request_id 持久去重。',
+    'delete_file':'删除普通文件；要求原 SHA-256，删除前备份，可 dry_run。',
+    'delete_directory':'递归删除有界目录；默认预览，执行要求预览 sha256；全量预检和备份，部分失败明确报告，不是原子事务。',
     'write_binary':'Base64 解码后写入原始字节；不执行文件。覆盖要求 expected_sha256。',
     'edit_file':'单文件唯一文本精确替换；要求原 SHA-256，可 dry_run。',
     'apply_patch':'执行 1–64 个跨文件精确文本替换（changes），也兼容旧单文件参数。先验证全批，确定序加锁，失败尽力回滚；不是崩溃原子事务。',
@@ -78,7 +81,7 @@ DESCRIPTIONS = {
     'list_backups':'列出此授权文件的本机备份元数据，不暴露备份目录。',
     'restore_file':'从对应备份恢复文件；要求当前 SHA-256，恢复前仍备份现状。',
 }
-WRITES = {'write_file','write_binary','edit_file','apply_patch','create_directory','restore_file'} | GIT_WRITES | {'run_command','start_command','cancel_command'}
+WRITES = {'save_conversation_to_codex','delete_file','delete_directory','write_file','write_binary','edit_file','apply_patch','create_directory','restore_file'} | GIT_WRITES | {'run_command','start_command','cancel_command'}
 DESCRIPTIONS.update({
     'git_init':'在授权可写目录初始化普通 Git 仓库；禁用模板/hooks。',
     'git_status':'获取受策略过滤的 Git 文件状态；不执行仓库 hook/filter。',
@@ -102,6 +105,10 @@ DESCRIPTIONS.update({
     'batch_read':'一次调用最多 16 个固定只读操作；全部参数先验证，禁止嵌套批量、写操作和 Shell。',
 })
 FIELDS.update({
+    'title':{'type':'string','minLength':1,'maxLength':500},
+    'messages':{'type':'array','minItems':1,'maxItems':500,'items':{'type':'object',
+        'properties':{'role':{'type':'string','enum':['user','assistant']},'content':TEXT},
+        'required':['role','content'],'additionalProperties':False}},
     'repo_path':S,'remote':S,'message':{'type':'string','minLength':1,'maxLength':16000},
     'branch':{'type':'string','minLength':1,'maxLength':200},'checkout':B,
     'expected_head':{'type':['string','null'],'maxLength':64},
@@ -111,6 +118,9 @@ FIELDS.update({
     'request_id':{'type':['string','null'],'maxLength':128},'session_id':S,
     'timeout_seconds':{'type':'integer','minimum':1,'maximum':3600},'cursor':I,
     'include_ignored':B,'head_limit':{'type':'integer','minimum':1,'maximum':1000},
+    'type':{'type':['string','null'],'maxLength':32},'multiline':B,
+    'context_before':{'type':['integer','null'],'minimum':0,'maximum':10},
+    'context_after':{'type':['integer','null'],'minimum':0,'maximum':10},
     'fixed_strings':B,'context':{'type':'integer','minimum':0,'maximum':10},
     'output_mode':{'type':'string','enum':['files_with_matches','content','count']},
     'queries':{'type':'array','minItems':1,'maxItems':6,'items':{'type':'string','minLength':1,'maxLength':500}},
@@ -162,6 +172,8 @@ def tool_disabled_reason(name, policy):
         return 'READ_ONLY_MODE'
     if name in COMMAND_TOOLS and not (policy.enable_commands and policy.mode == 'read_write'):
         return 'COMMANDS_DISABLED'
+    if name == 'save_conversation_to_codex' and not policy.enable_codex_history:
+        return 'CODEX_HISTORY_DISABLED'
     if name == 'git_push' and not policy.enable_git_push:
         return 'GIT_PUSH_DISABLED'
     return None
@@ -191,7 +203,7 @@ class Protocol:
             self.specs[name] = {'name':name, 'description':description,
                 'inputSchema': {'type':'object','properties':props,'required':required,'additionalProperties':False},
                 'annotations': {'readOnlyHint':name not in WRITES, 'destructiveHint':name in WRITES,
-                                'idempotentHint':name not in WRITES or name == 'cancel_command', 'openWorldHint':name in COMMAND_TOOLS or name == 'git_push'}}
+                                'idempotentHint':name not in WRITES or name == 'cancel_command', 'openWorldHint':name in COMMAND_TOOLS or name in ('git_push','save_conversation_to_codex')}}
 
     def result(self, message):
         if not isinstance(message,dict) or message.get('jsonrpc') != '2.0' or not isinstance(message.get('method'),str):

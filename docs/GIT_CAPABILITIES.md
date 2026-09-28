@@ -24,13 +24,13 @@ v0.4.1 新增三个受控工具：
 
 本服务的 lease 不约束其他 IDE/Git 进程。操作后检查 HEAD；发现并发变化报 `GIT_POSTCONDITION_FAILED`，不强制回滚外部修改。不能把这描述为对任意外部进程的原子事务或 OS 沙箱。
 
-## 工作树配置不是链接工作树
+## 工作树配置与 linked worktree
 
 支持普通仓库的 `.git/config` 中启用 `extensions.worktreeConfig`，并安全解析同目录 `config.worktree`。两份配置均从非仓库目录使用 `git config --file ... --no-includes` 检查，之后才运行仓库 Git 操作。按 Git 的布尔语义识别开关；开启时合并工作树配置，关闭时不应用其值，但仍审查已经存在的配置文件。
 
 配置必须是有界普通文件，拒绝符号链接、硬链接和特殊文件。继续拒绝外部 include、filter、credential helper、HTTP 凭据路径、SSH 命令、部分克隆等危险配置。`config.worktree` 内的 `core.worktree` 只有规范化路径和解析后的路径都恰好等于当前授权仓库、且路径组件无链接时才允许；不允许裸仓库，也不改写用户配置。配置错误不回显可能含敏感值的 Git 解析原文。
 
-**仍不支持** `.git` 为重定向文件的 linked worktree、子模块 gitfile、外部 common dir 和 alternates；这些返回 `UNSUPPORTED_GIT_LAYOUT` 或对应元数据错误。此修复不是“支持所有 worktree 布局”，不以放宽安全边界换取兼容。
+后续候选已补充 `.git` 为重定向文件的标准 linked worktree：要求工作树与主仓库都在授权 root 内，校验 gitdir/commondir/反向注册，写操作还要求两处均在 write_roots 内。普通文件仍不能直接读写 Git 元数据。子模块 gitfile、任意 separate git dir、root 外 common dir 和 alternates 继续拒绝。详见 [能力对照](FILEMCP_PARITY.md)；该候选尚不代表已安装。
 
 Git 官方依据：[工作树配置](https://git-scm.com/docs/git-worktree#_configuration_file)、[分支名规则](https://git-scm.com/docs/git-check-ref-format)。
 
@@ -47,11 +47,11 @@ Git 官方依据：[工作树配置](https://git-scm.com/docs/git-worktree#_conf
 | 模式 | 命令 | 推送 | 工具数 |
 |---|---|---|---:|
 | read_only | 任意配置 | 任意配置 | 25 |
-| read_write | 关 | 关 | 36 |
-| read_write | 开 | 关 | 40 |
-| read_write | 开 | 开 | 41 |
+| read_write | 关 | 关 | 39 |
+| read_write | 开 | 关 | 43 |
+| read_write | 开 | 开 | 44 |
 
-另有 read_write、命令关、推送开的组合，共 37 个工具。注册表和诊断使用同一启用条件，避免维护两套数量常量。
+另有 read_write、命令关、推送开的组合，共 40 个工具。上述数量按 v0.5.0 默认开启 Codex 会话导入计算；显式关闭则读写模式各减少一个，最多 44 个。注册表和诊断使用同一启用条件，避免维护两套数量常量。
 
 `client_tool_visibility_verified=false` 明确表示服务看不到 ChatGPT 的最终工具筛选结果。若服务端指纹/数量与会话发现不同，先确认版本和实例，再刷新连接元数据并用新会话验证；不能仅凭差异宣称已定位到缓存故障，也不能把写工具伪装为 read-only。
 

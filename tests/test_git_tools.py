@@ -98,7 +98,7 @@ def test_git_alternates_and_redirects(space):
     (info/'alternates').unlink()
     other=root/'worktree';other.mkdir();(other/'.git').write_text('gitdir: /outside')
     with pytest.raises(Fault) as e:svc.git_status('worktree')
-    assert e.value.code=='UNSUPPORTED_GIT_LAYOUT'
+    assert e.value.code=='OUTSIDE_ROOT'
 
 
 def test_git_identity_required_and_index_lock_reason(space):

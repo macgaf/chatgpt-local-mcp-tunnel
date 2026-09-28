@@ -17,10 +17,12 @@ from .command_tools import CommandManager, CommandMixin
 from .git_tools import GitTools, GitMixin
 from .search_tools import SearchMixin
 from .patches import apply_changes
+from .file_actions import FileActions
+from .codex_history import CodexHistoryMixin
 from .eventlog import EventLog
 
 
-class HomeService(SearchMixin, GitMixin, CommandMixin):
+class HomeService(SearchMixin, GitMixin, CommandMixin, FileActions, CodexHistoryMixin):
     def __init__(self, policy):
         self.policy = policy
         self.runtime_instance = uuid.uuid4().hex
@@ -193,19 +195,24 @@ class HomeService(SearchMixin, GitMixin, CommandMixin):
                 break
         return {'ok': True, 'results': results, 'truncated': truncated, 'skipped_files': skipped}
 
-    def write_file(self, path, content, expected_sha256=None, dry_run=False):
-        return self._write(path, content.encode('utf-8'), expected_sha256, dry_run)
+    def write_file(self, path, content, expected_sha256=None, dry_run=False, append=False):
+        if type(append) is not bool:
+            raise ValueError('append must be boolean')
+        return self._write(path, content.encode('utf-8'), expected_sha256, dry_run, append=append)
 
     def write_binary(self, path, data_base64, expected_sha256=None, dry_run=False):
         if len(data_base64) > (self.policy.max_file_size*4//3)+8:
             raise ValueError('base64 payload exceeds configured file size')
         return self._write(path, base64.b64decode(data_base64, validate=True), expected_sha256, dry_run)
 
-    def _write(self, path, data, expected, dry_run):
+    def _write(self, path, data, expected, dry_run, append=False):
         p = self.policy.require(path, write=True, must_exist=False)
         self.commands.guard_mutation([p])
         with Lease(self.policy.state_dir, p, 'write_file'):
             old = read_bytes(self.policy, str(p))[1] if p.exists() else None
+            if append and old is not None:
+                old.decode('utf-8')
+                data = old + data
             return commit_bytes(self.policy, p, data, old, expected, dry_run=dry_run)
 
     def edit_file(self, path, old_text, new_text, expected_sha256, dry_run=False):
@@ -242,7 +249,7 @@ class HomeService(SearchMixin, GitMixin, CommandMixin):
         found = []
         if base.exists():
             for meta in base.glob('*.json'):
-                data = json.loads(meta.read_text())
+                data = json.loads(meta.read_text(encoding='utf-8'))
                 if data.get('path') == str(p) and data.get('root') == str(self.policy.root):
                     found.append({k: data[k] for k in ('id','sha256','created_at','size')})
         found.sort(key=lambda x: x['created_at'], reverse=True)
@@ -253,7 +260,7 @@ class HomeService(SearchMixin, GitMixin, CommandMixin):
         if len(backup_id) != 32 or any(c not in '0123456789abcdef' for c in backup_id):
             raise ValueError('invalid backup id')
         base = self.policy.state_dir / 'backups'
-        meta = json.loads((base / (backup_id+'.json')).read_text())
+        meta = json.loads((base / (backup_id+'.json')).read_text(encoding='utf-8'))
         if meta.get('path') != str(p) or meta.get('root') != str(self.policy.root):
             raise Fault('BACKUP_SCOPE_MISMATCH', '备份不属于该文件/root。', backup_id, '使用 list_backups 返回的对应备份。')
         with (base / (backup_id+'.bin')).open('rb') as f:
