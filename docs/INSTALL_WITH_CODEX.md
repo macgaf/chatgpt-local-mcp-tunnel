@@ -16,7 +16,7 @@
 
 安装与升级统一使用 `main`；`feat/local-mcp-v0.3` 保留为开发历史，不再作为安装入口。优先复用现有仓库，核对 origin、HEAD、工作区及本地分叉。仅在没有本地修改、未完成合并且可以安全快进时更新；不擅自 stash、reset、clean 或删除分支。
 
-源码更新后重新运行完整安装器，再让用户重启自己管理的旧实例；不能把 git pull 当成升级已部署程序。记录源码 SHA 和实际运行版本；当前源码为 v0.5.0，其他机器仍需实际安装与连接验收，不能仅凭本文件宣称已升级。会话导入在读写模式下默认开启，保留配置中显式的 enable_codex_history=false。保留已确认的目录、权限、凭据来源、日志和其他 MCP 条目。README [第 3.7 节](../README.md#upgrade) 提供升级提示词。
+源码更新后重新运行完整安装器，再让用户重启自己管理的旧实例；不能把 git pull 当成升级已部署程序。记录源码 SHA 和实际运行版本；当前源码为 v0.5.1，其他机器仍需实际安装与连接验收，不能仅凭本文件宣称已升级。会话导入在读写模式下默认开启，保留配置中显式的 enable_codex_history=false。保留已确认的目录、权限、凭据来源、日志和其他 MCP 条目。README [第 3.7 节](../README.md#upgrade) 提供升级提示词。
 
 ## 安装器与仓库 Skill 的区别
 
@@ -31,6 +31,8 @@ Chrome 宿主中创建的 Python 可执行副本可能带 `com.apple.quarantine`
 同样的隔离标记也可能落在 Pillow 的 `_imaging*.so` 或 PDFium 动态库上。修复后的 macOS 完整安装器只从官方 PyPI 下载兼容 wheel，以 PyPI 发布元数据的 SHA256 校验每个包，再比对新 venv 内所有 `.so`／`.dylib` 的实际字节与 wheel 内容。全部校验通过后，仅移除这些文件的 `com.apple.quarantine`；保留其他属性、系统策略、原有安装及外部文件。校验失败、未知原生文件、链接或不支持的布局均停止安装，不降级为批量放行。此哈希验证不等于 Apple 公证或安全审计。
 
 完整安装在切换 `current.json` 前执行 `media-self-test`：实际 JPEG 解码、PDF 渲染／文字提取及 ImageContent 校验；失败保留原启动版本。`doctor` 的 `media_runtime` 使用同一子进程探针，超时或原生崩溃明确失败；缺少可选组件显示 warning，不代表媒体通过。`--core-only` 仍只验收核心，不宣称图片／PDF 可用。媒体可用性与客户端真正看见图片继续分别验收。
+
+升级后还需核对实际调用的进程。旧 Tunnel 包装器收到 SIGTERM 时可能遗留独立进程组，旧客户端仍会调用旧版本；修复后 SIGTERM／SIGINT 会进入退出清理并回收本次启动的组。优先优雅停止再启动，确认旧包装器、Tunnel 客户端和 MCP 子进程均已退出，再核对新实例的 `policy_info` 与图片调用；不能仅凭 LaunchAgent 的新 PID 或新 health URL 判定切换完成。SIGKILL 无法被程序清理处理，强制终止后需按路径、父子关系和日志识别遗留进程，仅处置确认属于该实例的进程。Codex 自己持有的 stdio 连接需要单独重连。
 
 ## 目录和权限由用户选择
 
