@@ -1,6 +1,6 @@
-# v0.4.1 分支操作与能力诊断
+# Git 分支、linked worktree 与能力诊断
 
-本修复已通过 PR #3 合并到 main，保留 `fix/git-capabilities-20260927` 开发分支。代码测试见 [TEST_REPORT](../TEST_REPORT.md)，本次授权机器的安装和重启证据见 [部署验收记录](DEPLOYMENT_20260927.md)。合并、安装、服务重启与 ChatGPT 工具刷新仍是不同步骤。
+分支接口与 config.worktree 支持自 v0.4.1 / PR #3 合并；标准 linked worktree 自 v0.5.0 / PR #4 合并。本文描述当前主线能力。代码测试见 [TEST_REPORT](../TEST_REPORT.md)，[部署验收记录](DEPLOYMENT_20260927.md) 仅对应 v0.4.1 的历史安装和重启。合并、安装、服务重启与 ChatGPT 工具刷新仍是不同步骤。
 
 ## 修复范围
 
@@ -30,7 +30,7 @@ v0.4.1 新增三个受控工具：
 
 配置必须是有界普通文件，拒绝符号链接、硬链接和特殊文件。继续拒绝外部 include、filter、credential helper、HTTP 凭据路径、SSH 命令、部分克隆等危险配置。`config.worktree` 内的 `core.worktree` 只有规范化路径和解析后的路径都恰好等于当前授权仓库、且路径组件无链接时才允许；不允许裸仓库，也不改写用户配置。配置错误不回显可能含敏感值的 Git 解析原文。
 
-后续候选已补充 `.git` 为重定向文件的标准 linked worktree：要求工作树与主仓库都在授权 root 内，校验 gitdir/commondir/反向注册，写操作还要求两处均在 write_roots 内。普通文件仍不能直接读写 Git 元数据。子模块 gitfile、任意 separate git dir、root 外 common dir 和 alternates 继续拒绝。详见 [能力对照](FILEMCP_PARITY.md)；该候选尚不代表已安装。
+v0.5.0 已支持 `.git` 为重定向文件的标准 linked worktree：要求工作树与主仓库都在授权 root 内，校验 gitdir/commondir/反向注册，写操作还要求两处均在 write_roots 内。普通文件仍不能直接读写 Git 元数据。子模块 gitfile、任意 separate git dir、root 外 common dir 和 alternates 继续拒绝。详见 [能力对照](FILEMCP_PARITY.md)；源码支持不代表已有实例已升级。
 
 Git 官方依据：[工作树配置](https://git-scm.com/docs/git-worktree#_configuration_file)、[分支名规则](https://git-scm.com/docs/git-check-ref-format)。
 
@@ -39,7 +39,7 @@ Git 官方依据：[工作树配置](https://git-scm.com/docs/git-worktree#_conf
 `policy_info` 和 `workspace_context` 增加 `capabilities`，`diagnose(path)` 保留原锁探测并额外分别报告：
 
 - 服务版本、当前实例随机标识（不是 Tunnel ID）、工具名列表、数量和 schema 指纹；每个被禁用工具的原因。
-- 文件写入、Git 读取、分支创建、分支切换、Shell、推送各自是否已注册。
+- 文件写入、Git 读取、分支创建、分支切换、Shell、推送和 Codex 会话导入各自是否已注册。
 - 目标路径的文件写策略预检、Git 兼容/状态和锁状态。`file_write.disk_write_tested=false`：未试写，不代表 OS 落盘验收通过。
 
 `write_roots=[]` 的语义为 root 范围内再减去 deny，而不是“无可写目录”。`shell_enabled=false` 不等于文件只读。Git 布局拒绝也不能推导为普通文件不可修改。

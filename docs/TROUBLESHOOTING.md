@@ -12,9 +12,9 @@ ChatGPT 无法连接时，先检查本项目的运行实例，再排查 App 绑�
 
 ## 文件可写、Git 失败、Shell 关闭必须分别判断
 
-v0.4.1 修复在 `policy_info.capabilities` 返回工具目录、数量、指纹、运行实例和独立权限状态，`diagnose(path)` 分别返回文件写策略、Git 状态及锁。详见 [能力诊断](GIT_CAPABILITIES.md)。`write_roots=[]` 不表示没有可写目录；`shell_enabled=false` 不表示文件只读；`UNSUPPORTED_GIT_LAYOUT` 不表示文件不可写。
+`policy_info.capabilities` 返回工具目录、数量、指纹、运行实例和独立权限状态，`diagnose(path)` 分别返回文件写策略、Git 状态及锁。详见 [能力诊断](GIT_CAPABILITIES.md)。`write_roots=[]` 不表示没有可写目录；`shell_enabled=false` 不表示文件只读；`UNSUPPORTED_GIT_LAYOUT` 不表示文件不可写。
 
-若服务端报告 36 个工具而 ChatGPT 只发现 25 个，先核对源码/已安装版本、运行实例和连接工具刷新；没有证据不能断言是缓存。服务不能直接观察或修复宿主侧的工具筛选，`client_tool_visibility_verified` 始终为 false。CLI doctor 的能力检查是新诊断实例，不替代真实 Tunnel 上的 `policy_info`。
+若服务端工具目录与 ChatGPT 发现的目录不一致（v0.5.0 读写默认 39 个、只读 25 个，实际数量还取决于开关），先核对源码/已安装版本、运行实例和连接工具刷新；没有证据不能断言是缓存。服务不能直接观察或修复宿主侧的工具筛选，`client_tool_visibility_verified` 始终为 false。CLI doctor 的能力检查是新诊断实例，不替代真实 Tunnel 上的 `policy_info`。
 
 ## 诊断命令与错误码
 
@@ -30,7 +30,7 @@ v0.4.1 修复在 `policy_info.capabilities` 返回工具目录、数量、指纹
 | OUTSIDE_ROOT / PATH_TRAVERSAL | 越界或 ../ | 使用授权范围内真实路径 |
 | SYMLINK_WRITE_DENIED / REPARSE_POINT_DENIED | 写路径含链接 | 使用真实路径；不要禁用检查 |
 | HARDLINK_DENIED | 多硬链接可能绕过路径过滤 | 对普通授权数据创建正常副本，不链接凭据 |
-| PRECONDITION_REQUIRED | 覆盖缺原文件 SHA | 先 read_file 或 file_info |
+| PRECONDITION_REQUIRED | 文件修改／删除缺少原文件 SHA | 先 read_file 或 file_info |
 | HASH_CONFLICT | 文件已被 IDE/另一 agent 修改 | 重新读、比较、合并；不能仅替换 expected_sha256 强行覆盖 |
 | AMBIGUOUS_EDIT | old_text 匹配零次或多次 | 使用更充分且唯一的上下文 |
 | FILE_LOCKED | 本服务其他操作持有目标写锁 | 看 holder.pid/operation/started_at/path/request_id；等待或核查持有者 |
@@ -57,7 +57,7 @@ v0.4.1 修复在 `policy_info.capabilities` 返回工具目录、数量、指纹
 | Tunnel healthy，但 ChatGPT 看不到 | 未关联当前工作区/App 未启用 | 检查账号/工作区及聊天工具选择，不反复重装本机 |
 | visual_probe 返回了但看不到图 | 宿主未向模型提供 ImageContent | 确认具备视觉的模型和支持图片结果的客户端；不是改 Base64 字符串就能解决 |
 
-## v0.4 编程错误
+## 编程接口错误
 
 | 错误码 | 原因和动作 |
 |---|---|
@@ -65,9 +65,9 @@ v0.4.1 修复在 `policy_info.capabilities` 返回工具目录、数量、指纹
 | REQUEST_ID_CONFLICT / SESSION_EXPIRED | 重试键参数不一致或输出过期；不要重复执行未知结果的修改任务 |
 | WORKSPACE_COMMAND_ACTIVE | 相交目录有任务；查看返回 session_id/cwd，读完或取消自己的任务 |
 | COMMAND_CONCURRENCY_LIMIT | 活动任务达到配置上限；不擅自杀其他任务 |
-| PROCESS_ISOLATION_FAILED | Windows 无法分配 Job Object；停止命令，不假称可清理子进程 |
+| PROCESS_ISOLATION_FAILED | Windows 无法建立 Job Object 隔离或恢复挂起的自有进程；停止命令，不降级为无隔离执行 |
 | UNSAFE_GIT_CONFIG / UNSAFE_GIT_METADATA | 不安全扩展、链接或对象库；本机审核，不能关闭防护强行执行 |
-| UNSUPPORTED_GIT_LAYOUT | 当前要求非裸仓库真实 .git 目录；安全的 config.worktree 已支持，但 linked worktree/submodule gitdir 未支持 |
+| UNSUPPORTED_GIT_LAYOUT | 支持普通 .git 目录及标准、已双向注册的 linked worktree；子模块 gitfile、任意 separate git dir 等仍拒绝。按 [Git 布局说明](GIT_CAPABILITIES.md) 核查，不能取消校验 |
 | INVALID_GIT_CONFIG | 配置格式、布尔值或大小不合法；错误不会回显配置值 |
 | INVALID_BRANCH_NAME / GIT_BRANCH_EXISTS / GIT_BRANCH_NOT_FOUND | 只接受安全本地分支名；不覆盖已有分支或猜测远端 |
 | GIT_DIRTY_WORKTREE / GIT_OPERATION_IN_PROGRESS | 先完成已有修改或 Git 操作；不自动 stash/reset/abort |
@@ -80,12 +80,16 @@ v0.4.1 修复在 `policy_info.capabilities` 返回工具目录、数量、指纹
 | SEARCH_IGNORE_DEPENDENCY_MISSING | 缺 pathspec；安装 search 组件，不静默无视忽略规则 |
 | SEARCH_TIMEOUT / INVALID_SEARCH_PATTERN | 正则无效或超时；缩小范围/改用字面搜索；主 MCP 不受阻塞 |
 | BATCH_TOOL_DENIED | batch_read 出现写操作、命令或递归批量；先修正整个请求 |
+| DELETE_PATH_DENIED / DELETE_BUDGET | 删除目标包含受保护／特殊条目，或清单／备份超过预算；预检未通过，先核查目标或拆小范围 |
+| DELETE_INCOMPLETE / DELETE_POSTCONDITION_FAILED | 部分条目可能已删除，或删除后目标被外部进程重建；核查已删路径与 backup_id，按需恢复，不盲目重试 |
+| CODEX_HISTORY_DISABLED | 当前为只读模式或导入开关显式关闭；导入在读写模式默认开启，本机可使用 --enable-codex-history 恢复，无需额外确认参数 |
+| CODEX_HISTORY_FAILED | 核查 cause、phase、thread_id、request_id；可能是 Codex 缺失／版本不兼容／请求冲突／读回不一致。保留已创建会话，不换请求 ID 盲目重试 |
 | PATCH_BUDGET_EXCEEDED | 多文件原文/结果超过总量限制；拆分修改 |
 | PATCH_FAILED_ROLLED_BACK / PATCH_ROLLBACK_INCOMPLETE | 中途失败；检查逐文件 rollback 和备份，不覆盖外部新内容 |
 
 ## FileMCP 的“活动命令锁”与本项目的区别
 
-FileMCP 原作可能报 `Command session is active; finish or cancel it before file mutations or Git operations`：这通常是原作的活动命令会话门控，不等同于 OS 文件锁。v0.4 提供显式开启的命令会话，但仅对相交 cwd 的修改门控；按目标文件的 OS lease 协调文件写入。不会因项目 A 的任务阻止无关项目 B 写入。
+FileMCP 原作可能报 `Command session is active; finish or cancel it before file mutations or Git operations`：这通常是原作的活动命令会话门控，不等同于 OS 文件锁。本工具提供显式开启的命令会话，但仅对相交 cwd 的修改门控；按目标文件的 OS lease 协调文件写入。不会因项目 A 的任务阻止无关项目 B 写入。
 
 `diagnose(path)` 的锁检查只探测本服务的锁，未持有的旧元数据不算活锁；文件不删除，避免另一个进程在新 inode 上取得第二把锁。外部 FileMCP 实例和本工具不会共享应用内的锁；同时修改时仍需哈希冲突保护。
 
@@ -110,10 +114,14 @@ FileMCP 原作可能报 `Command session is active; finish or cancel it before f
 
 日志关闭只停止后续记录，不删除既有记录。DEBUG 也不会持久保存命令/文件正文或凭据。不要为了读取日志解除私有状态目录的 MCP 保护；使用 Codex 原有终端工具。
 
+## macOS 提示“未打开 python”
+
+先核对被拦截的具体路径；Chrome 宿主创建的 Python 副本可能带 quarantine，不能仅凭弹窗认定基础 Python 损坏。当前 POSIX 安装器使用符号链接复用已有解释器。停止重复运行受阻副本，按 [安装说明](INSTALL_WITH_CODEX.md#macos-python-验证弹窗) 检查并验证安装／重装，不关闭系统安全检查。
+
 ## main 已更新，但本机仍是旧功能
 
 先确认本机仓库的 origin、分支和 HEAD。安装来源应为 `main`；不要再按旧文档回退到功能分支。工作区有未提交修改或本地 main 分叉时停止更新，不强制覆盖。
 
 `git pull` 只更新仓库，不更新已复制到版本化安装目录的 MCP。按 README [第 3.7 节](../README.md#upgrade) 重新执行完整安装器，再重启由用户管理的 MCP／Tunnel 实例并刷新客户端工具发现。v0.4.0 的交互安装和日志修订沿用相同版本号，需同时核对源码提交、安装器结果及 `logs path`，不能只看 `--version`。
 
-排查时保留现有 root/mode/write_roots、凭据、日志配置和其他 Codex 条目；不得通过重新安装扩大权限或要求用户把 ID/key 发到聊天。
+排查时保留现有 root/mode/write_roots、凭据、日志配置和其他 Codex 条目。v0.5.0 的 enable_codex_history 缺省为 true，显式 false 保留；它在读写模式下允许新建项目 root 外的 Codex 历史。除已说明的版本默认值变化，不借重新安装改写其他权限，也不要求用户把 ID/key 发到聊天。

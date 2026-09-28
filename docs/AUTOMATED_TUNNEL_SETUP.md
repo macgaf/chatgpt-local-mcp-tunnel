@@ -85,7 +85,7 @@ local-mcp key status
 local-mcp key set
 ```
 
-不要给不存在的自动命令写“可直接运行”，也不要仅加一段提示词就宣称新增了已验证的网页 provisioning 功能。此修订不修改 38 个 MCP 工具、权限默认值或运行程序。
+不要给不存在的自动命令写“可直接运行”，也不要仅加一段提示词就宣称新增了已验证的网页 provisioning 功能。网站准备本身不修改 MCP 工具目录或权限；当前工具数量及默认值以 [编程接口与权限](CODING_TOOLS.md) 和运行实例的 policy_info.capabilities 为准。
 
 ## 参考
 

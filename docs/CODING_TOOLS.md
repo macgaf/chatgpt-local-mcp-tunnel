@@ -2,7 +2,7 @@
 
 ## 可调用工具
 
-v0.4 保留 v0.3 的图片、PDF、ZIP、二进制和安全写入接口，并补齐：
+当前接口保留图片、PDF、ZIP、二进制和安全写入能力，并提供：
 
 | 类别 | 接口 | 关键语义 |
 |---|---|---|
@@ -11,6 +11,8 @@ v0.4 保留 v0.3 的图片、PDF、ZIP、二进制和安全写入接口，并补
 | 检索 | glob, grep, search_code, repo_overview, workspace_context | 忽略规则、扫描预算、代码声明/标识符启发式排序 |
 | 批量读取 | batch_read | 1–16 个固定只读操作，全批校验，逐项结果和错误 |
 | 跨文件补丁 | apply_patch(changes=[...]) | 1–64 个跨文件有序精确替换，原 SHA 必填、全批预检、确定序锁、尽力回滚 |
+| 追加与删除 | write_file(append=true), delete_file, delete_directory | 哈希前置条件、备份；目录默认预览，部分失败明确报告 |
+| 会话导入 | save_conversation_to_codex | 读写模式默认开启、可关闭；新建 Codex 历史并读回，不调用模型 |
 
 只读模式 25 个工具；读写模式默认 39 个（含 Codex 会话导入）；命令增加 4 个，推送增加 1 个，关闭会话导入减少 1 个，最多 44 个。禁用的工具不会注册，服务实现也检查本地权限，不能靠提示词开启。
 
@@ -59,7 +61,7 @@ Windows PowerShell 的包装器会保留最终原生命令的非零退出码，�
 
 ## Git 安全模式与限制
 
-Git 不依赖 Shell 开关；只读有 status/log/diff/branches，read_write 才有 init/add/commit/create_branch/switch_branch。分支操作和能力诊断详见 [v0.4.1 修复说明](GIT_CAPABILITIES.md)。工具使用固定 argv，禁用 hooks、fsmonitor、外部 diff/textconv、签名、自动维护、隐式 lazy fetch；忽略全局/系统 Git 配置。路径按字面量处理，不能注入 flags/pathspec magic。
+Git 不依赖 Shell 开关；只读有 status/log/diff/branches，read_write 才有 init/add/commit/create_branch/switch_branch。分支操作和能力诊断详见 [Git 能力说明](GIT_CAPABILITIES.md)。工具使用固定 argv，禁用 hooks、fsmonitor、外部 diff/textconv、签名、自动维护、隐式 lazy fetch；忽略全局/系统 Git 配置。路径按字面量处理，不能注入 flags/pathspec magic。
 
 支持普通 `.git` 目录，以及同一授权 root 内、Git 双向注册关系完整的 linked worktree（`.git` 文件、`commondir`、反向 `gitdir`）。读取须允许访问主仓库和当前工作树；写操作要求两处仓库范围均可写，因为引用与对象共享。所有工作树以 common dir 获取同一服务锁。支持经双配置安全检查的 `extensions.worktreeConfig` / `config.worktree`。submodule、任意 separate git dir、root 外的 common dir、object alternates、符号链接或多硬链接元数据，以及外部 include/filter/HTTP 凭据配置仍拒绝。**不会为了兼容自动取消这些检查**。Git LFS filter 等配置需要在本机单独处理，本版不宣称完整支持所有 Git 布局。
 

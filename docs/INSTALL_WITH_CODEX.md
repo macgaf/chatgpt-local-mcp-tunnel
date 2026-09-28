@@ -18,6 +18,10 @@
 
 源码更新后重新运行完整安装器，再让用户重启自己管理的旧实例；不能把 git pull 当成升级已部署程序。记录源码 SHA 和实际运行版本；当前源码为 v0.5.0，其他机器仍需实际安装与连接验收，不能仅凭本文件宣称已升级。会话导入在读写模式下默认开启，保留配置中显式的 enable_codex_history=false。保留已确认的目录、权限、凭据来源、日志和其他 MCP 条目。README [第 3.7 节](../README.md#upgrade) 提供升级提示词。
 
+## 安装器与仓库 Skill 的区别
+
+`bootstrap.py` 安装运行程序，`--register-codex` 注册 MCP 服务；两者都不会把 [local-mcp-setup Skill](../skills/local-mcp-setup/SKILL.md) 复制到用户 Skills 目录。该 Skill 依赖仓库根目录的 README、AGENTS 和 docs，使用时先定位仓库，不能把只复制一个 SKILL.md 当成完整安装。
+
 ## macOS Python 验证弹窗
 
 POSIX 安装环境通过符号链接复用基础 Python；Windows 保留复制方式。基础 Python 仍需保留，升级或移除它后应重新安装本工具。
