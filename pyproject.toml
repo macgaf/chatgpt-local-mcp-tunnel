@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chatgpt-local-mcp-tunnel"
-version = "0.5.1"
+version = "0.5.2"
 description = "Local files, media previews, native credential storage and onboarding for ChatGPT MCP Tunnel"
 requires-python = ">=3.11"
 dependencies = []

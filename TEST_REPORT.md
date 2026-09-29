@@ -1,3 +1,9 @@
+# v0.5.2 版本提升（2026-09-30）
+
+按用户要求将日志修复从 0.5.1 提升至 0.5.2，通过 [PR #7](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/7) 合并交付。代码行为沿用已完成本机 355 passed／9 skipped 的日志修复；以下候选及 CI 阻塞记录保留原验证时间。合并状态、最终提交与远端检查以 PR 为准；本次版本提升不代表用户现有 0.5.1 服务已更新。
+
+版本提升后复核：协议／日志专项 **37 passed，0.79 秒**，临时 XDG 目录内真实 CLI stdio self-test 通过；源码版本、项目版本、双 README 一致性及 git diff --check 通过。没有把 GitHub 账单／额度阻塞下未执行的任务记为三平台通过。
+
 # Tunnel 日志证据与分类修复（2026-09-29，候选）
 
 基线 main `f890f74`，分支 `fix/tunnel-diagnostic-evidence`，基础版本保持 0.5.1。本段是候选源码验证，不代表现有安装或常驻实例已更新。

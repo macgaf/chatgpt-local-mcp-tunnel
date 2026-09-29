@@ -2,7 +2,9 @@
 
 **让 ChatGPT 直接分析和修改你的本地项目。**
 
-代码版本：**v0.5.1** · 安装分支：**`main`** · 支持 macOS / Windows / Linux · 默认 HOME 只读
+代码版本：**v0.5.2** · 安装分支：**`main`** · 支持 macOS / Windows / Linux · 默认 HOME 只读
+
+v0.5.2 修复 Tunnel 日志的 401/403 误分类，并保留有界、轮转、脱敏的请求证据（[PR #7](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/7)）。
 
 v0.5.1 修复 macOS 原生图片／PDF 依赖的隔离弹窗，并增加真实媒体验收（[PR #6](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/6)）；代码验证见 [测试报告](TEST_REPORT.md)，Git 支持范围见 [能力说明](docs/GIT_CAPABILITIES.md)。[v0.4.1 部署验收记录](docs/DEPLOYMENT_20260927.md) 仅是历史记录，不代表现有服务已经升级。
 
@@ -433,7 +435,7 @@ local-mcp logs configure --level INFO --max-mib 5 --keep 5 --days 14
 <a id="upgrade"></a>
 ### 3.7 更新到 main 并升级本机安装
 
-**拉取源码不等于升级已安装的 MCP。** 安装器使用版本化安装目录；更新本机仓库后，还需重新执行安装器，并重启由你管理的 MCP／Tunnel 实例。当前版本为 `0.5.1`；早期 `0.4.0` 曾有同版本修订，因此仍应同时记录安装所用的 Git 提交和实际运行实例。
+**拉取源码不等于升级已安装的 MCP。** 安装器使用版本化安装目录；更新本机仓库后，还需重新执行安装器，并重启由你管理的 MCP／Tunnel 实例。当前版本为 `0.5.2`；早期 `0.4.0` 曾有同版本修订，因此仍应同时记录安装所用的 Git 提交和实际运行实例。
 
 **复制给本机 Codex：**
 
