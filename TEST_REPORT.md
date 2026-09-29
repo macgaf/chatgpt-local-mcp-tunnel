@@ -1,3 +1,24 @@
+# v0.5.2 版本提升（2026-09-30）
+
+按用户要求将日志修复从 0.5.1 提升至 0.5.2，通过 [PR #7](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/7) 合并交付。代码行为沿用已完成本机 355 passed／9 skipped 的日志修复；以下候选及 CI 阻塞记录保留原验证时间。合并状态、最终提交与远端检查以 PR 为准；本次版本提升不代表用户现有 0.5.1 服务已更新。
+
+版本提升后复核：协议／日志专项 **37 passed，0.79 秒**，临时 XDG 目录内真实 CLI stdio self-test 通过；源码版本、项目版本、双 README 一致性及 git diff --check 通过。没有把 GitHub 账单／额度阻塞下未执行的任务记为三平台通过。
+
+# Tunnel 日志证据与分类修复（2026-09-29，候选）
+
+基线 main `f890f74`，分支 `fix/tunnel-diagnostic-evidence`，基础版本保持 0.5.1。本段是候选源码验证，不代表现有安装或常驻实例已更新。
+
+最终本机完整回归：**355 passed、9 skipped，116.35 秒，退出码 0**。补充的测试文件读写统一显式 UTF-8。提交 `951d526` 的 push run `36569496343` 与 PR run `36569604481` 六个任务均未开始任何步骤；GitHub 注释明确为账号付款失败或消费额度限制，不能算三平台验证通过。修复保留在 [PR #7](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/7) 草稿，未变更账单、合并 main 或替换用户部署。
+
+- 首轮最小复现：请求 ID、耗时、路径及 HTTP 200 正文包含 401/403 的四个案例全部失败；实测证明原分类器将无关数字／正文误认成认证或权限错误。
+- 修复两条路径：运行期 `record_tunnel_event` 和失败管理命令 `run_checked` 共用严格证据解析；JSON／logfmt 状态字段、完整错误语法、未知格式、冲突／重复字段分别验证。不扫描响应正文中的关键词来推断失败类别。
+- 首轮完整本机回归 **353 passed、9 skipped，114.84 秒**。随后补充原生日志参数及控制面格式支持，相关四组专项 **73 passed、1 skipped**；最后旧标签读回保护的日志／诊断专项 **54 passed，2.07 秒**。这些集合重叠，不相加；最终完整跨平台结果以 PR 的具体提交 CI 为准。
+- CLI 真实 stdio self-test 在临时 XDG 配置／状态目录通过，legacy／modern discovery、读回、只读隐藏写工具及目录一致性均通过。首次默认沙箱执行核心自检也成功，但写宿主日志提示 PermissionError；临时目录复测没有该提示，未把日志写入失败当作成功。
+- 使用本机原生 tunnel-client v0.0.15、临时 HOME、虚构 key 和回环 HTTP 服务合成 403，未访问真实控制面认证：捕获 **267 行**，**9 个请求／9 条 HTTP 拒绝证据**，关联响应请求 ID 哈希，层级为 control_plane，原始片段为 `controlplane client: unexpected status 403`，明确跨层关联／根因／下游执行仍未确认。落盘摘要不含虚构 key、认证头或响应正文；没有未处理的原生日志文件。
+- 原生实测发现 `--log.file stdout` 会创建同名文件；改用空字符串后 JSON 输出进入管道。合成测试生成的旧 `stdout` 文件已删除；运行器显式关闭 HTTP raw 与 Harpoon payload capture，测试同时检查这些参数。
+- 真子进程在 stdout 指向 `/dev/null` 时仍产生有请求关联的 `tunnel_diagnostic`；轮转在 16 KiB／2 份历史配置下验证每段上限与文件数量，未知头／payload／URL 不落盘，导出重新过滤。旧认证／权限标签缺少匹配 HTTP 证据时显示 TUNNEL_CLASSIFICATION_UNVERIFIED，原历史文件不改写。
+- 仅读取运行中 Tunnel 的 100 条原生事件并在内存投影，确认其请求关联字段及 dispatcher 转发模板；“转发给 MCP”不等于已执行，也不能用这些样本解释未指定的某次线上失败。没有声称真实平台拒绝、真实工具失败或模型拒绝的端到端归因已完成。
+
 # v0.5.1 macOS 原生媒体修复验证（2026-09-28）
 
 修复基于 main `64108d5`，通过 [PR #6](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/6) 交付。首个修复提交 `6e51846` 的本机部署仍标为 0.5.0，随后用户再次报告弹窗；以下记录补查原因、增加进程清理以及实际安装并启动 0.5.1 后的结果。

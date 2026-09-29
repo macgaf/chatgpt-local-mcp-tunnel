@@ -24,6 +24,7 @@ from .policy import APP, Policy, locations
 from .storage import private_dir, Lease, write_private
 from .media import safe_member
 from .eventlog import EventLog, LogSettings, error_fields
+from .tunnel_diagnostics import diagnostic, error_code as diagnostic_error_code
 
 
 def load_settings(path):
@@ -113,7 +114,7 @@ def stop_owned_process(proc, force_group=False):
         proc.wait(timeout=5)
 
 
-def run_checked(argv, *, env=None, timeout=60, secrets=()):
+def run_checked(argv, *, env=None, timeout=60, secrets=(), audit=None):
     # Read a capped response with a watchdog; no unbounded communicate()/capture_output.
     flags = {'start_new_session':True} if os.name!='nt' else {'creationflags':subprocess.CREATE_NEW_PROCESS_GROUP}
     try:
@@ -132,10 +133,14 @@ def run_checked(argv, *, env=None, timeout=60, secrets=()):
         raw = proc.stdout.read(1024*1024+1)
         if len(raw)>1024*1024:
             stop_owned_process(proc)
+            if audit is not None:
+                audit.emit('tunnel','tunnel_output_dropped','WARNING',error_code='COMMAND_OUTPUT_LIMIT',bytes=len(raw))
             raise Fault('COMMAND_OUTPUT_LIMIT','命令输出超过 1 MiB，已停止本次子进程。',Path(argv[0]).name,
                         '检查命令是否意外进入持续日志模式；未把截断内容当作成功。')
         status = proc.wait(timeout=5)
         if timed_out.is_set():
+            if audit is not None:
+                audit.emit('tunnel','tunnel_command_timeout','ERROR',error_code='COMMAND_TIMEOUT',exit_code=status)
             raise Fault('COMMAND_TIMEOUT', '配置/验证命令超时。', Path(argv[0]).name,
                         '检查网络或被阻塞的凭据授权；重试 doctor，不要将超时视为成功。',retryable=True)
     finally:
@@ -143,21 +148,22 @@ def run_checked(argv, *, env=None, timeout=60, secrets=()):
         stop_owned_process(proc)
         proc.stdout.close()
     # Redact BEFORE truncation, otherwise a boundary could split a secret.
-    output = redact(raw.decode('utf-8','replace'),secrets)[-24000:]
+    clean = redact(raw.decode('utf-8','replace'),secrets)
+    lines = clean.splitlines()
+    evidence = diagnostic(lines[-1] if lines else '')
+    if audit is not None:
+        for line in lines:
+            record_tunnel_event(audit, line)
+        audit.emit('tunnel','tunnel_command_completed','ERROR' if status else 'INFO',exit_code=status)
+        # Tunnel 管理命令也只输出安全投影，不能让认证头和负载落入终端日志。
+        output = json.dumps(evidence,ensure_ascii=False)
+    else:
+        output = clean[-24000:]
     if status:
-        low = output.lower()
-        if '401' in low or 'unauthorized' in low:
-            code, action = 'TUNNEL_AUTHENTICATION_FAILED', '检查 Runtime key 是否有效/已撤销，以及 key 与 Tunnel 所属组织是否一致。'
-        elif '403' in low or 'forbidden' in low:
-            code, action = 'TUNNEL_PERMISSION_DENIED', '检查 Tunnel Read/Use 权限及 ChatGPT workspace 关联；不自动升级权限。'
-        elif 'certificate' in low or 'tls' in low:
-            code, action = 'TLS_FAILURE', '检查系统时间、代理证书和 TLS 信任链；不要关闭证书验证。'
-        elif 'resolve' in low or 'dns' in low:
-            code, action = 'DNS_FAILURE', '检查 DNS、代理和官方服务域名的可达性。'
-        else:
-            code, action = 'COMMAND_FAILED', '检查退出码和输出中的具体原因，再运行 doctor。'
-        raise Fault(code, '命令执行失败。', output, action,
-                    executable=Path(argv[0]).name,exit_code=status)
+        code = diagnostic_error_code(evidence) or 'COMMAND_FAILED'
+        raise Fault(code, '命令执行失败。', '已确认子进程非零退出；错误证据及未确认项见 diagnostic。',
+                    '按同一请求及最后到达层级核对错误；无明确证据时不归因为认证、权限或模型拒绝。',
+                    executable=Path(argv[0]).name,exit_code=status,diagnostic=evidence)
     return {'ok':True,'exit_code':0,'output':output}
 
 
@@ -325,7 +331,7 @@ def tunnel_init(config_path):
                         '审核该 profile；不会使用 --force 覆盖不明配置。')
     else:
         run_checked([binary,'init','--sample','sample_mcp_stdio_local','--profile',profile,
-                     '--tunnel-id',settings['tunnel_id'],'--mcp-command',command],env=env,secrets=(key,))
+                     '--tunnel-id',settings['tunnel_id'],'--mcp-command',command],env=env,secrets=(key,),audit=EventLog(config_path))
         if not profile_path.exists():
             raise Fault('TUNNEL_PROFILE_NOT_CREATED','init 成功但预期 profile 不存在。',profile,
                         '检查 tunnel-client 版本和 TUNNEL_CLIENT_PROFILE_DIR 行为。')
@@ -341,7 +347,7 @@ def tunnel_init(config_path):
 
 def tunnel_doctor(config_path):
     _,binary,key,_,profile,env = tunnel_context(config_path)
-    return run_checked([binary,'doctor','--profile',profile,'--explain'],env=env,secrets=(key,),timeout=90)
+    return run_checked([binary,'doctor','--profile',profile,'--explain'],env=env,secrets=(key,),timeout=90,audit=EventLog(config_path))
 
 
 @contextmanager
@@ -369,13 +375,15 @@ def tunnel_run(config_path):
     audit.emit('tunnel','tunnel_starting')
     state = private_dir(locations()[2]/'tunnel')
     argv = [binary,'run','--profile',profile,'--health.listen-addr','127.0.0.1:0',
-            '--health.url-file',str(state/'health-url')]
+            '--health.url-file',str(state/'health-url'),
+            '--log.format','json','--log.file','','--log.http-raw-unsafe=false',
+            '--harpoon.capture-payloads=false']
     with _tunnel_termination_signals(), Lease(locations()[2],settings['tunnel_id'],'tunnel_run'):
         kwargs = {'start_new_session':True} if os.name!='nt' else {'creationflags':subprocess.CREATE_NEW_PROCESS_GROUP}
         proc = subprocess.Popen(argv,env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,**kwargs)
         audit.emit('tunnel','tunnel_process_started',child_pid=proc.pid)
         try:
-            # Whole bounded lines are redacted before printing; overlong lines are dropped.
+            # 写入有界证据后才输出；原生自由文本和负载不进入持久日志或终端。
             while True:
                 line = proc.stdout.readline(65537)
                 if not line:
@@ -386,9 +394,8 @@ def tunnel_run(config_path):
                     audit.emit('tunnel','tunnel_output_dropped','WARNING',error_code='LOG_LINE_TOO_LONG')
                     print('[dropped overlong tunnel log line]',flush=True)
                 else:
-                    text = redact(line.decode('utf-8','replace'),(key,))
-                    record_tunnel_event(audit, text)
-                    print(text,end='',flush=True)
+                    evidence = record_tunnel_event(audit, line.decode('utf-8','replace'),secrets=(key,))
+                    print(json.dumps(evidence,ensure_ascii=False),flush=True)
             status = proc.wait()
             if status:
                 raise Fault('TUNNEL_EXITED','Tunnel 进程异常退出。','见上方脱敏日志。',
@@ -399,21 +406,13 @@ def tunnel_run(config_path):
             audit.emit('tunnel','tunnel_process_stopped','INFO' if proc.returncode == 0 else 'WARNING',exit_code=proc.returncode)
 
 
-def record_tunnel_event(audit, text):
-    """Persist known event categories, NEVER raw third-party logs or URLs."""
-    lower = text.lower()
-    for tokens, code in ((('401','unauthorized'), 'TUNNEL_AUTHENTICATION_FAILED'),
-                         (('403','forbidden'), 'TUNNEL_PERMISSION_DENIED'),
-                         (('certificate','tls error'), 'TLS_FAILURE'),
-                         (('dns','failed to resolve'), 'DNS_FAILURE')):
-        if any(token in lower for token in tokens):
-            audit.emit('tunnel','tunnel_reported_error','ERROR',error_code=code)
-            return
-    for token, state in (('reconnect','reconnecting'), ('disconnected','disconnected'),
-                         ('healthy','healthy_reported'), ('ready','ready_reported'),
-                         ('connected','connected_reported'), ('error','error_reported')):
-        if token in lower:
-            audit.emit('tunnel','tunnel_reported_status','WARNING' if state in ('disconnected','error_reported') else 'INFO',
-                       reported_status=state)
-            return
-    audit.emit('tunnel','tunnel_output_received','DEBUG',bytes=len(text.encode('utf-8')))
+def record_tunnel_event(audit, text, *, secrets=()):
+    """持久化逐行安全证据；在 stdout 被服务管理器丢弃时仍可定位。"""
+    evidence = diagnostic(text, secrets)
+    code = diagnostic_error_code(evidence)
+    level = 'ERROR' if code else evidence.get('reported_level', 'INFO')
+    # DEBUG 输出也保留 INFO 摘要，未知正文只保存指纹和省略说明。
+    if level == 'DEBUG':
+        level = 'INFO'
+    audit.emit('tunnel','tunnel_diagnostic',level,diagnostic=evidence,error_code=code)
+    return evidence

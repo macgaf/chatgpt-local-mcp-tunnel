@@ -29,6 +29,8 @@ description: 安装、升级、诊断本机 MCP，并在用户明确授权时自
 
 文件任务优先真实 MCP：文本 read_file，图片 read_image，PDF render_pdf_page，ZIP list_archive/read_archive_member，visual_probe 验证视觉；资源 URI 不是 sandbox 路径。错误保留 cause/remediation，不删除活锁、杀未知 PID 或强行刷新哈希覆盖。
 
+诊断时按 docs/LOGGING.md 读取有界、轮转、脱敏的 Tunnel 证据；保留诊断日志，不另存未经处理的输出、认证头或完整负载。最终结论逐项写“哪个请求、最后到达哪一层、原始错误是什么、哪些仍无法确认”。明确区分 HTTP 拒绝、MCP／子进程执行失败和模型猜测；任意文本包含 401/403 不构成认证或权限失败证据。已转发不等于执行成功，未记录或被省略的原文如实标注未知。
+
 升级重启后，对照日志 pid／process_id、安装路径与实际客户端调用，确认旧 Tunnel 包装器及其子进程已退出；新 health URL 不能代替这一检查。优先 SIGTERM 优雅停止；只能清理已核实属于该实例的进程，独立 Codex stdio 连接需单独重连。具体边界见 docs/INSTALL_WITH_CODEX.md。
 
 当前 Git 能力和布局限制见 docs/GIT_CAPABILITIES.md，FileMCP 补齐范围见 docs/FILEMCP_PARITY.md；docs/DEPLOYMENT_20260927.md 仅记录 v0.4.1 的历史部署，当前源码验证见 TEST_REPORT.md。先比较 policy_info.capabilities 的工具数、目录指纹、实例和实际客户端工具发现。区分文件写策略、Git 布局兼容、Shell 与推送开关；不得从 Shell 关闭或 Git 失败推断文件只读。分支操作使用 git_branches / git_create_branch / git_switch_branch，不需要开启 Shell；不自动 stash/reset/clean。config.worktree 配置和 linked worktree 布局分别检查；标准 linked worktree 已支持，读取要求主仓库与工作树均在授权 root 内，写 Git 还要求两处均可写。候选代码、已合并源码、已安装版本和真实 Tunnel 验收必须分开报告，不通过远程工具自改权限或重启自身。

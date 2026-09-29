@@ -2,7 +2,9 @@
 
 **让 ChatGPT 直接分析和修改你的本地项目。**
 
-代码版本：**v0.5.1** · 安装分支：**`main`** · 支持 macOS / Windows / Linux · 默认 HOME 只读
+代码版本：**v0.5.2** · 安装分支：**`main`** · 支持 macOS / Windows / Linux · 默认 HOME 只读
+
+v0.5.2 修复 Tunnel 日志的 401/403 误分类，并保留有界、轮转、脱敏的请求证据（[PR #7](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/7)）。
 
 v0.5.1 修复 macOS 原生图片／PDF 依赖的隔离弹窗，并增加真实媒体验收（[PR #6](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/6)）；代码验证见 [测试报告](TEST_REPORT.md)，Git 支持范围见 [能力说明](docs/GIT_CAPABILITIES.md)。[v0.4.1 部署验收记录](docs/DEPLOYMENT_20260927.md) 仅是历史记录，不代表现有服务已经升级。
 
@@ -416,13 +418,14 @@ local-mcp logs configure --level DEBUG
 local-mcp logs configure --level INFO --max-mib 5 --keep 5 --days 14
 ```
 
-改变设置后重启长驻服务。日志只保留安全事件摘要，**不保存文件正文、命令内容、完整命令输出、图像、配置全文或 ID/key 正文**；Tunnel 日志也只保存识别出的事件类别，不是原始输出副本。导出重新过滤字段，不覆盖已有文件，但仍需审核后分享。日志写入故障会单独报告，不因此重复执行业务写入。
+改变设置后重启长驻服务。日志只保留安全事件摘要，**不保存文件正文、命令内容、完整命令输出、图像、配置全文、认证头或 ID/key 正文**；Tunnel 在输出被重定向前保留有界诊断：请求哈希、明确 HTTP 状态、已报告层级、安全错误片段与未确认项，未知正文明确省略。任意文本包含 401/403 不判定认证／权限失败。导出重新过滤字段，不覆盖已有文件，但仍需审核后分享。日志写入故障会单独报告，不因此重复执行业务写入。
 
 **复制给本机 Codex：**
 
 ```text
 请用你原有的本机终端工具定位 local-mcp，执行 logs path，并查看相关分类最近 200 条和 ERROR 日志。
 结合 doctor，按时间、process_id、request_id/session_id 找出失败阶段及原因。
+最终逐项写明：哪个请求、最后到达哪一层、原始错误是什么、哪些仍无法确认；区分明确拒绝、执行失败和模型猜测。
 不要打印 ID/key 或配置全文，不要把缺失日志当作操作未执行而重试写入，不要删除未知锁文件。
 需要提供诊断材料时使用 logs export，先审核后分享；不依赖故障中的 MCP 来读其私有日志目录。
 ```
@@ -432,7 +435,7 @@ local-mcp logs configure --level INFO --max-mib 5 --keep 5 --days 14
 <a id="upgrade"></a>
 ### 3.7 更新到 main 并升级本机安装
 
-**拉取源码不等于升级已安装的 MCP。** 安装器使用版本化安装目录；更新本机仓库后，还需重新执行安装器，并重启由你管理的 MCP／Tunnel 实例。当前版本为 `0.5.1`；早期 `0.4.0` 曾有同版本修订，因此仍应同时记录安装所用的 Git 提交和实际运行实例。
+**拉取源码不等于升级已安装的 MCP。** 安装器使用版本化安装目录；更新本机仓库后，还需重新执行安装器，并重启由你管理的 MCP／Tunnel 实例。当前版本为 `0.5.2`；早期 `0.4.0` 曾有同版本修订，因此仍应同时记录安装所用的 Git 提交和实际运行实例。
 
 **复制给本机 Codex：**
 
