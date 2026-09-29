@@ -64,7 +64,7 @@ def test_payloads_headers_and_unknown_secrets_never_persist(tmp_path):
         record_tunnel_event(log,json.dumps(record))
     files=list(log.directory.glob('tunnel.jsonl*'))
     assert len(files)==3 and all(p.stat().st_size<=16384 for p in files)
-    disk=''.join(p.read_text() for p in files)
+    disk=''.join(p.read_text(encoding='utf-8') for p in files)
     for forbidden in (secret,'Authorization','Basic ','Cookie','sensitive_payload','https://'):
         assert forbidden not in disk
     rows=recent(log.directory,component='tunnel',tail=100)['records']
@@ -75,7 +75,7 @@ def test_payloads_headers_and_unknown_secrets_never_persist(tmp_path):
     assert evidence['unconfirmed']==['cross_layer_correlation','root_cause','downstream_execution']
     dest=tmp_path/'export.json'
     export(log.directory,dest,component='tunnel')
-    assert secret not in dest.read_text()
+    assert secret not in dest.read_text(encoding='utf-8')
 
 
 def test_unrecognized_and_forged_diagnostic_are_explicitly_omitted(tmp_path):
@@ -86,7 +86,7 @@ def test_unrecognized_and_forged_diagnostic_are_explicitly_omitted(tmp_path):
     assert 'original_error_text_omitted' in row['diagnostic']['unconfirmed']
     # 日志读回／导出再次过滤，不信任磁盘上已有的诊断字段。
     row['diagnostic'].update(original_error='private body',request_id_hash='private key',body='private payload')
-    (log.directory/'tunnel.jsonl').write_text(json.dumps(row)+'\n')
+    (log.directory/'tunnel.jsonl').write_text(json.dumps(row)+'\n',encoding='utf-8')
     reread=recent(log.directory,component='tunnel')['records'][0]
     assert 'private' not in json.dumps(reread)
 
@@ -102,7 +102,7 @@ def test_real_tunnel_stdout_devnull_still_retains_safe_evidence(space,tmp_path,m
         'assert sys.argv[sys.argv.index("--log.file")+1]==""\n'
         'assert sys.argv[sys.argv.index("--log.format")+1]=="json"\n'
         f'print({wire!r})\n',encoding='utf-8')
-    cfg=space[0]/'config.json';cfg.write_text('{}')
+    cfg=space[0]/'config.json';cfg.write_text('{}',encoding='utf-8')
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(onboarding,'tunnel_context',lambda p: (
         {'tunnel_id':'test-owned'},sys.executable,secret,None,'test',dict(os.environ)))
@@ -120,7 +120,7 @@ def test_tunnel_management_output_is_also_safe(tmp_path):
     wire='Authorization: Basic opaque-unprefixed-secret'
     result=run_checked([sys.executable,'-c',f'print({wire!r})'],audit=log)
     assert 'opaque-unprefixed-secret' not in json.dumps(result)
-    assert 'Authorization' not in (log.directory/'tunnel.jsonl').read_text()
+    assert 'Authorization' not in (log.directory/'tunnel.jsonl').read_text(encoding='utf-8')
 
 
 def test_known_secret_redacted_before_parsing():
@@ -174,10 +174,10 @@ def test_legacy_auth_labels_without_evidence_are_unverified_on_read(tmp_path):
     log=EventLog(state_dir=tmp_path)
     log.emit('tunnel','placeholder')
     path=log.directory/'tunnel.jsonl'
-    row=json.loads(path.read_text())
+    row=json.loads(path.read_text(encoding='utf-8'))
     row.update(event='tunnel_reported_error',level='ERROR',error_code='TUNNEL_PERMISSION_DENIED')
-    original=json.dumps(row)+'\n';path.write_text(original)
+    original=json.dumps(row)+'\n';path.write_text(original,encoding='utf-8')
     loaded=recent(log.directory,component='tunnel')['records'][0]
     assert loaded['error_code']=='TUNNEL_CLASSIFICATION_UNVERIFIED'
     assert loaded['legacy_error_code']=='TUNNEL_PERMISSION_DENIED'
-    assert path.read_text()==original
+    assert path.read_text(encoding='utf-8')==original
