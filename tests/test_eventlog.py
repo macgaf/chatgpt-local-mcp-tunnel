@@ -227,8 +227,8 @@ def test_follow_rotation_and_future_file(space, monkeypatch):
 
 def test_tunnel_persists_categories_not_raw_output(space):
     log=logger(space,level='DEBUG')
-    for text in ['401 unauthorized '+SECRET,'403 forbidden '+TUNNEL,'DNS error '+SECRET,
-                 'TLS error '+SECRET,'connected '+SECRET,'PRIVATE_SOURCE '+SECRET]:
+    for text in [json.dumps({'error':error,'body':'PRIVATE_SOURCE '+SECRET,'authorization':TUNNEL})
+                 for error in ('401 unauthorized','403 forbidden','DNS error','TLS error','connected','unknown')]:
         record_tunnel_event(log,text)
     rows=records(log,component='tunnel')
     assert len(rows)==6 and any(r.get('error_code')=='DNS_FAILURE' for r in rows)

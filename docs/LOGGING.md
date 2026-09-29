@@ -24,11 +24,30 @@ local-mcp logs path
 |---|---|
 | `mcp.jsonl` / `mcp` | 服务启动/停止、工具名、请求 ID、耗时、成功/失败、错误类别；包含通过 MCP 调用的 Git 和补丁操作 |
 | `commands.jsonl` / `commands` | 命令任务启动/结束/取消/复用、会话 ID、子进程 PID、退出码、超时预算和输出字节数；**不保存命令正文或 stdout/stderr 正文** |
-| `tunnel.jsonl` / `tunnel` | Tunnel 进程状态及从输出识别到的认证/权限/DNS/TLS/重连等事件类别；**不是原始 Tunnel 日志的逐行副本** |
+| `tunnel.jsonl` / `tunnel` | Tunnel 进程状态及逐行安全诊断证据：请求标识哈希、明确 HTTP 状态、已报告层级、安全错误片段与未确认项；**不保存原始负载** |
 | `cli.jsonl` / `cli` | 本机配置、凭据检查、Codex 注册、安装 Tunnel 客户端等命令的状态；doctor 各检查项的结果 |
 | `install.jsonl` / `install` | bootstrap 安装阶段、成功或失败；不收集 pip 的完整输出 |
 
-Tunnel 的 `ready_reported` / `connected_reported` 仅表示子进程输出中报告了相应状态，不等于 ChatGPT 已成功调用。日志没有记录到某事件，也不能单独证明该操作没有发生。
+Tunnel 的状态仅表示子进程报告了相应事件。`request_forwarded`／`local_mcp_dispatch` 只证明日志报告“已转发给本地 MCP”，不证明 MCP 已接收或执行成功；日志没有记录到某事件，也不能单独证明该操作没有发生。
+
+### Tunnel 证据与隐私边界
+
+`tunnel run` 在打印 stdout 之前写入 `tunnel.jsonl`，沿用下文的大小、轮转、保留时间及私有权限。即使服务管理器将 stdout/stderr 重定向到 `/dev/null`，启用日志时仍保留诊断投影；无需另存未经处理的原生输出。`tunnel init`／`tunnel doctor` 同样投影后记录及输出。关闭 logging、提高过滤级别、日志写入失败或容量淘汰仍会造成缺失。
+
+运行器显式使用原生 JSON 输出，`--log.file` 传空字符串使输出进入受控管道，并关闭 `log.http-raw-unsafe` 和 `harpoon.capture-payloads`，防止 profile 将原始日志旁路写到其他文件或收集完整 HTTP 负载。本机 tunnel-client v0.0.15 已实测：传字面量 `stdout` 会创建同名文件，不能这样配置；旧客户端不支持上述选项时应升级客户端，不删除安全选项回退。
+
+`diagnostic` 字段包含：
+
+- 哪个请求：原生 `request_id`、`rpc_request_id`、`cmd_request_id`、`tunnel_request_id` 分别以 `*_hash` 记录 SHA-256；不保存原值，缺失占位值不算请求身份。不同类型 ID 不直接等同，跨层关联仍需验证。已识别的控制面 metadata/poll 操作另记 `operation`。用 `logs show --component tunnel --json` 查看这些字段；`--request-id` 仍用于原 MCP 事件的 request_id，不自动匹配 Tunnel 的哈希。
+- 最后到哪层：`last_reached_layer` 来自明确的组件字段或已知原生转发事件。`http_peer` 只表示输出报告 HTTP 响应，具体服务未知；无证据则为 `unknown`。
+- 原始错误：`http_status` 保存明确 HTTP 状态字段；`original_error` 仅保存完整匹配已知 HTTP／网络错误语法、至多 256 字符的原始片段，不从自由文本中摘取数字。没有安全片段时明确省略，而非编造错误原文。
+- 哪些未确认：`unconfirmed` 明列请求身份／跨层关联、根因及下游执行状态；未知错误原文另外标为 `original_error_text_omitted`。这不是对所有层自动建立的分布式追踪。
+
+解析 JSON 或 logfmt 的明确 `http_status`／`status_code`，或完整的 `HTTP 403 Forbidden` 等错误行；正文、路径、耗时、请求 ID 中的 401/403，以及单独的 unauthorized/forbidden 不作认证／权限判断。明确状态字段冲突时保留冲突标记、不分类；HTTP 401/403 也不能证明 key 已撤销、本机文件权限不足或模型拒绝。
+
+旧版仅留下 `TUNNEL_AUTHENTICATION_FAILED`／`TUNNEL_PERMISSION_DENIED` 标签、没有匹配诊断状态的记录，在查看和导出时标为 `TUNNEL_CLASSIFICATION_UNVERIFIED`，原标签保留在 `legacy_error_code`。原始历史文件不改写；不能把新版的解释套在旧误分类结果上冒充确证。
+
+自由文本、认证头（包括 Basic/Bearer/Cookie）、URL、配置、错误堆栈和任意嵌套请求／响应正文全部舍弃，保留行指纹与 `content_omitted`。大于 64 KiB 的运行日志行整行丢弃并记录事件，管理命令输出总量超过 1 MiB 则停止。未知格式仍保留有界摘要，不为了诊断启用原始 HTTP payload logging；日志导出会再次执行相同字段白名单。
 
 ## 2. 查看最近日志
 

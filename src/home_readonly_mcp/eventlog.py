@@ -21,6 +21,7 @@ import time
 import uuid
 from .errors import Fault, normalize_error, redact
 from .policy import locations
+from .tunnel_diagnostics import safe_diagnostic, error_code as diagnostic_error_code
 
 COMPONENTS = ('mcp', 'commands', 'tunnel', 'cli', 'install')
 LEVELS = {'DEBUG': 10, 'INFO': 20, 'WARNING': 30, 'ERROR': 40}
@@ -44,8 +45,9 @@ CAUSES = {
     'KEYSTORE_UNAVAILABLE': ('系统安全凭据库不可用。', '检查系统凭据库及用户会话，不回退明文。'),
     'KEYSTORE_READ_FAILED': ('系统凭据读取失败。', '解锁凭据库并核对权限，不提供聊天明文。'),
     'RUNTIME_KEY_MISSING': ('没有可用 Runtime 凭据。', '在独立本机终端用 key set 隐藏录入。'),
-    'TUNNEL_AUTHENTICATION_FAILED': ('Tunnel 报告认证失败。', '本机检查凭据及所属组织。'),
-    'TUNNEL_PERMISSION_DENIED': ('Tunnel 报告权限不足。', '核对目标 Tunnel 的 Read/Use 与工作区关联。'),
+    'TUNNEL_AUTHENTICATION_FAILED': ('Tunnel 输出明确报告 HTTP 401；具体凭据原因未确认。', '按请求标识和层级核对对端响应，不推断 key 失效或组织不符。'),
+    'TUNNEL_PERMISSION_DENIED': ('Tunnel 输出明确报告 HTTP 403；拒绝方和具体策略需继续核对。', '对照同一请求的路由及响应，不直接推断本机文件或 Shell 权限不足。'),
+    'TUNNEL_CLASSIFICATION_UNVERIFIED': ('旧分类标签缺少明确 HTTP 状态证据，不能据此认定认证或权限失败。', '关联同一请求的新诊断证据；保留历史记录，不补猜原始错误。'),
     'DNS_FAILURE': ('Tunnel 报告域名解析失败。', '检查 DNS 和代理。'),
     'TLS_FAILURE': ('Tunnel 报告证书或 TLS 错误。', '检查时间、代理证书和信任链，不关闭 TLS 验证。'),
     'DISK_FULL': ('磁盘空间不足。', '检查目标卷、备份与日志空间。'),
@@ -118,13 +120,19 @@ def error_fields(error):
             result['holder_started_at'] = str(holder['started_at'])
     if isinstance(details.get('session_id'), str):
         result['session_id'] = _token(details['session_id'])
+    if isinstance(details.get('diagnostic'), dict):
+        result['diagnostic'] = safe_diagnostic(details['diagnostic'])
     return result
 
 
 def safe_fields(fields):
     result = {}
     for key, value in fields.items():
-        if key in INT_FIELDS and type(value) is int:
+        if key == 'diagnostic':
+            result[key] = safe_diagnostic(value)
+        elif key == 'legacy_error_code' and value in ('TUNNEL_AUTHENTICATION_FAILED','TUNNEL_PERMISSION_DENIED'):
+            result[key] = value
+        elif key in INT_FIELDS and type(value) is int:
             result[key] = value
         elif key in BOOL_FIELDS and type(value) is bool:
             result[key] = value
@@ -136,6 +144,11 @@ def safe_fields(fields):
             result['cause'], result['remediation'] = CAUSES.get(code, (
                 '操作未完成；原因类别见 error_code/errno。',
                 '按 request_id 对照工具错误和 docs/TROUBLESHOOTING.md；不要分享原始密钥或配置。'))
+    if (result.get('error_code') in ('TUNNEL_AUTHENTICATION_FAILED','TUNNEL_PERMISSION_DENIED') and
+            diagnostic_error_code(result.get('diagnostic',{})) != result['error_code']):
+        result['legacy_error_code'] = result['error_code']
+        result['error_code'] = 'TUNNEL_CLASSIFICATION_UNVERIFIED'
+        result['cause'], result['remediation'] = CAUSES['TUNNEL_CLASSIFICATION_UNVERIFIED']
     return redact(result)
 
 
@@ -431,6 +444,8 @@ def render(record, json_output=False):
         return json.dumps(record, ensure_ascii=False)
     keys = ('tool','operation','stage','request_id','session_id','state','exit_code','duration_ms','error_code','cause','remediation')
     details = ' '.join(f'{k}={record[k]}' for k in keys if k in record)
+    if 'diagnostic' in record:
+        details += ' diagnostic=' + json.dumps(safe_diagnostic(record['diagnostic']), ensure_ascii=False)
     return f"{record['timestamp']} {record['level']:<7} [{record['component']}] {record['event']} {details}".rstrip()
 
 
