@@ -4,13 +4,9 @@
 
 代码版本：**v0.5.2** · 安装分支：**`main`** · 支持 macOS / Windows / Linux · 默认 HOME 只读
 
-v0.5.2 修复 Tunnel 日志的 401/403 误分类，并保留有界、轮转、脱敏的请求证据（[PR #7](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/7)）。
-
-v0.5.1 修复 macOS 原生图片／PDF 依赖的隔离弹窗，并增加真实媒体验收（[PR #6](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/6)）；代码验证见 [测试报告](TEST_REPORT.md)，Git 支持范围见 [能力说明](docs/GIT_CAPABILITIES.md)。[v0.4.1 部署验收记录](docs/DEPLOYMENT_20260927.md) 仅是历史记录，不代表现有服务已经升级。
+[发布说明](CHANGELOG.md)
 
 [这是什么](#what) · [主要能力](#capabilities) · [配置网站](#platform) · [本机安装](#install) · [连接 ChatGPT](#connect-chatgpt) · [故障排查](#troubleshooting) · [Codex 激活与示例](#codex) · [ChatGPT 激活与示例](#chatgpt) · [日志](#logs) · [更新与升级](#upgrade)
-
-v0.5.0 增加 linked worktree、删除／追加、搜索扩展与默认开启的 Codex 会话导入；[完整能力对照](docs/FILEMCP_PARITY.md)。导入仍要求读写模式；旧配置缺少开关时使用新默认值，显式关闭则保留。源码版本更新不代表现有服务已经升级。
 
 <a id="what"></a>
 ## 1. 这是什么？解决什么问题？
