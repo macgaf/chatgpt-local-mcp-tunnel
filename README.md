@@ -1,6 +1,6 @@
 # chatgpt-local-mcp-tunnel
 
-**让 ChatGPT 直接分析和修改你的本地项目。**
+**让 ChatGPT 的高能力模型在聊天窗口中自动调用工具，处理你的本机项目。**
 
 代码版本：**v0.5.2** · 安装分支：**`main`** · 支持 macOS / Windows / Linux · 默认 HOME 只读
 
@@ -11,7 +11,11 @@
 <a id="what"></a>
 ## 1. 这是什么？解决什么问题？
 
-这是一个运行在你电脑上的 **MCP 服务**。连接后，你可以在 ChatGPT 聊天窗口中直接要求它阅读项目、查找代码、查看图片和 PDF、修改多个文件，以及在授权后运行测试、操作 Git，减少来回复制代码和手工上传文件的步骤。
+**项目的目标是充分利用 ChatGPT 订阅中的模型能力与可用额度，让 GPT Pro 等高能力模型，以及 GPT-5.6 Sol 等模型的高推理档位，在聊天窗口中自动调用工具处理本机项目。** 你提出任务，模型理解项目、规划步骤并调用工具，完成分析、修改和验证。
+
+本项目提供运行在你电脑上的 **MCP 服务**，让模型在授权范围内阅读文件、检索代码、查看图片和 PDF、修改多个文件，以及在开启对应权限后运行测试、操作 Git，减少来回复制代码和手工上传文件的步骤。
+
+具体可选模型、推理档位、使用额度与 App 工具支持，以当前账号和 ChatGPT 界面为准。关于网页端 GPT-5.6 Sol xhigh 与 Max 的对应关系，可参考这篇[社区讨论](https://community.openai.com/t/chatgpt-web-abnormal-responses-correlated-with-resolved-model-slug/1399698)；该对应关系尚未核实，[官方 API 模型说明](https://developers.openai.com/api/docs/models/gpt-5.6-sol)将 `xhigh` 和 `max` 列为不同档位。
 
 ```text
 ChatGPT 聊天窗口 → OpenAI Secure MCP Tunnel → 本机 MCP → 你授权的项目目录
