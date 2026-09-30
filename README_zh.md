@@ -1,21 +1,21 @@
 # chatgpt-local-mcp-tunnel
 
-**让 ChatGPT 直接分析和修改你的本地项目。**
+**让 ChatGPT 的高能力模型在聊天窗口中自动调用工具，处理你的本机项目。**
 
-代码版本：**v0.5.2** · 安装分支：**`main`** · 支持 macOS / Windows / Linux · 默认 HOME 只读
+代码版本：**v0.5.3** · 安装分支：**`main`** · 支持 macOS / Windows / Linux · 默认 HOME 只读
 
-v0.5.2 修复 Tunnel 日志的 401/403 误分类，并保留有界、轮转、脱敏的请求证据（[PR #7](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/7)）。
-
-v0.5.1 修复 macOS 原生图片／PDF 依赖的隔离弹窗，并增加真实媒体验收（[PR #6](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/6)）；代码验证见 [测试报告](TEST_REPORT.md)，Git 支持范围见 [能力说明](docs/GIT_CAPABILITIES.md)。[v0.4.1 部署验收记录](docs/DEPLOYMENT_20260927.md) 仅是历史记录，不代表现有服务已经升级。
+[发布说明](CHANGELOG.md)
 
 [这是什么](#what) · [主要能力](#capabilities) · [配置网站](#platform) · [本机安装](#install) · [连接 ChatGPT](#connect-chatgpt) · [故障排查](#troubleshooting) · [Codex 激活与示例](#codex) · [ChatGPT 激活与示例](#chatgpt) · [日志](#logs) · [更新与升级](#upgrade)
-
-v0.5.0 增加 linked worktree、删除／追加、搜索扩展与默认开启的 Codex 会话导入；[完整能力对照](docs/FILEMCP_PARITY.md)。导入仍要求读写模式；旧配置缺少开关时使用新默认值，显式关闭则保留。源码版本更新不代表现有服务已经升级。
 
 <a id="what"></a>
 ## 1. 这是什么？解决什么问题？
 
-这是一个运行在你电脑上的 **MCP 服务**。连接后，你可以在 ChatGPT 聊天窗口中直接要求它阅读项目、查找代码、查看图片和 PDF、修改多个文件，以及在授权后运行测试、操作 Git，减少来回复制代码和手工上传文件的步骤。
+**项目的目标是充分利用 ChatGPT 订阅中的模型能力与可用额度，让 GPT Pro 等高能力模型，以及 GPT-5.6 Sol 等模型的高推理档位，在聊天窗口中自动调用工具处理本机项目。** 你提出任务，模型理解项目、规划步骤并调用工具，完成分析、修改和验证。
+
+本项目提供运行在你电脑上的 **MCP 服务**，让模型在授权范围内阅读文件、检索代码、查看图片和 PDF、修改多个文件，以及在开启对应权限后运行测试、操作 Git，减少来回复制代码和手工上传文件的步骤。
+
+具体可选模型、推理档位、使用额度与 App 工具支持，以当前账号和 ChatGPT 界面为准。关于网页端 GPT-5.6 Sol xhigh 与 Max 的对应关系，可参考这篇[社区讨论](https://community.openai.com/t/chatgpt-web-abnormal-responses-correlated-with-resolved-model-slug/1399698)；该对应关系尚未核实，[官方 API 模型说明](https://developers.openai.com/api/docs/models/gpt-5.6-sol)将 `xhigh` 和 `max` 列为不同档位。
 
 ```text
 ChatGPT 聊天窗口 → OpenAI Secure MCP Tunnel → 本机 MCP → 你授权的项目目录
@@ -435,7 +435,7 @@ local-mcp logs configure --level INFO --max-mib 5 --keep 5 --days 14
 <a id="upgrade"></a>
 ### 3.7 更新到 main 并升级本机安装
 
-**拉取源码不等于升级已安装的 MCP。** 安装器使用版本化安装目录；更新本机仓库后，还需重新执行安装器，并重启由你管理的 MCP／Tunnel 实例。当前版本为 `0.5.2`；早期 `0.4.0` 曾有同版本修订，因此仍应同时记录安装所用的 Git 提交和实际运行实例。
+**拉取源码不等于升级已安装的 MCP。** 安装器使用版本化安装目录；更新本机仓库后，还需重新执行安装器，并重启由你管理的 MCP／Tunnel 实例。当前版本为 `0.5.3`；早期 `0.4.0` 曾有同版本修订，因此仍应同时记录安装所用的 Git 提交和实际运行实例。
 
 **复制给本机 Codex：**
 

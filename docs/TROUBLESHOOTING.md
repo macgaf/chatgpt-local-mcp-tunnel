@@ -20,7 +20,7 @@ ChatGPT 无法连接时，先检查本项目的运行实例，再排查 App 绑�
 
 `policy_info.capabilities` 返回工具目录、数量、指纹、运行实例和独立权限状态，`diagnose(path)` 分别返回文件写策略、Git 状态及锁。详见 [能力诊断](GIT_CAPABILITIES.md)。`write_roots=[]` 不表示没有可写目录；`shell_enabled=false` 不表示文件只读；`UNSUPPORTED_GIT_LAYOUT` 不表示文件不可写。
 
-若服务端工具目录与 ChatGPT 发现的目录不一致（v0.5.2 读写默认 39 个、只读 25 个，实际数量还取决于开关），先核对源码/已安装版本、运行实例和连接工具刷新；没有证据不能断言是缓存。服务不能直接观察或修复宿主侧的工具筛选，`client_tool_visibility_verified` 始终为 false。CLI doctor 的能力检查是新诊断实例，不替代真实 Tunnel 上的 `policy_info`。
+若服务端工具目录与 ChatGPT 发现的目录不一致（v0.5.3 读写默认 39 个、只读 25 个，实际数量还取决于开关），先核对源码/已安装版本、运行实例和连接工具刷新；没有证据不能断言是缓存。服务不能直接观察或修复宿主侧的工具筛选，`client_tool_visibility_verified` 始终为 false。CLI doctor 的能力检查是新诊断实例，不替代真实 Tunnel 上的 `policy_info`。
 
 ## 诊断命令与错误码
 

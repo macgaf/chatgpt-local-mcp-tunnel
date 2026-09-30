@@ -1,13 +1,24 @@
 # Changelog
 
+代码验证见 [测试报告](TEST_REPORT.md)，Git 支持范围见 [能力说明](docs/GIT_CAPABILITIES.md)。[v0.4.1 部署验收记录](docs/DEPLOYMENT_20260927.md) 仅是历史记录，不代表现有服务已经升级。源码版本更新不代表现有服务已经升级。
+
+## v0.5.3 项目定位与发布说明整理 — 2026-10-01
+
+- README 明确项目目标：利用 ChatGPT 订阅中的高能力模型与可用额度，在聊天窗口中规划任务、自动调用工具，处理授权范围内的本机项目。
+- 同步双 README，保留 GPT Pro、GPT-5.6 Sol 与社区讨论入口；模型、推理档位、额度及 App 工具支持以当前账号为准，网页端 xhigh 与 Max 的对应关系仍未核实。
+- 将 v0.5.2、v0.5.1、v0.5.0 的首页版本说明集中到本发布记录，README 仅保留链接；补齐 PR、能力与验证入口，保留历史部署边界。
+- 按用户要求将版本从 0.5.2 提升至 0.5.3，通过 [PR #8](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/8) 交付；本轮不改变工具行为、权限默认值或用户现有部署。
+
 ## v0.5.2 Tunnel 日志证据与分类修复 — 2026-09-30
 
+- 通过 [PR #7](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/7) 交付。
 - 认证／权限分类改用明确 HTTP 状态字段及完整错误语法，修复任意文本包含 401/403 的误判；非零退出与 HTTP 拒绝分别记录。
-- Tunnel 输出在重定向前持久化有界安全诊断，沿用日志轮转／保留设置；保留请求哈希、已报告层级、白名单错误片段与未知项，丢弃认证头和完整负载。
+- Tunnel 输出在重定向前持久化有界、脱敏的请求证据，沿用日志轮转／保留设置；保留请求哈希、已报告层级、白名单错误片段与未知项，丢弃认证头和完整负载。
 - 安装及排错说明、Skill 统一按请求、到达层级、原始错误、无法确认事项给出结论。版本从 0.5.1 提升至 0.5.2，源码变更不代表现有实例已更新。
 
 ## v0.5.1 macOS 原生媒体验收修复 — 2026-09-28
 
+- 修复 macOS 原生图片／PDF 依赖的隔离弹窗，并增加真实媒体验收（[PR #6](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/6)）。
 - macOS 完整安装校验官方 PyPI wheel SHA256 与安装后的原生库字节，仅定向处理新环境内原生库的 quarantine；不修改系统安全策略。
 - 新增 `media-self-test`，实际 JPEG 解码、PDF 渲染／文字提取和 ImageContent 校验，完整安装通过后才切换版本；doctor 同步检查。
 - 媒体按需加载前检测隔离标记，区分缺失、被隔离和加载失败；完善错误日志、安装说明和 Skill。版本从 0.5.0 提升至 0.5.1；不改变现有权限默认值。
@@ -25,10 +36,10 @@
 - Git 解析并验证标准 linked worktree，common dir 共享锁，当前工作树状态检查和配置解析；root/write_roots 不扩大。
 - 新增带备份及哈希前置条件的 delete_file/delete_directory；文本追加保留并发保护。
 - 搜索增加类型、跨行、独立前后上下文、单文件范围和不区分大小写的 brace glob。
-- 新增默认开启、可独立关闭的 Codex 会话导入（仍要求 read_write；显式 false 配置继续保留）；新建会话、读回验证、持久 request_id 去重，不调用模型。
+- 新增默认开启、可独立关闭的 Codex 会话导入（仍要求 read_write；旧配置缺少开关时使用新默认值，显式 false 配置继续保留）；新建会话、读回验证、持久 request_id 去重，不调用模型。
 - Windows 子进程先挂起、加入 Job Object 再恢复，修复快速 Git 子进程退出早于 Job 绑定的时序问题。
 - POSIX 安装 venv 使用已安装 Python 的符号链接，避免 Chrome 宿主给新建可执行副本附加 quarantine 后反复弹出 macOS Gatekeeper 提示；Windows 保留复制方式，不修改系统安全设置。
-- 版本从 0.4.1 提升至 0.5.0；源码更新不自动升级现有部署。完整差异和验收边界见 docs/FILEMCP_PARITY.md、TEST_REPORT.md。
+- 版本从 0.4.1 提升至 0.5.0；源码更新不自动升级现有部署。完整差异和验收边界见 [完整能力对照](docs/FILEMCP_PARITY.md)、[测试报告](TEST_REPORT.md)。
 
 ## v0.4.1 分支操作与能力诊断 — 2026-09-27
 
