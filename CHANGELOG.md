@@ -2,6 +2,13 @@
 
 代码验证见 [测试报告](TEST_REPORT.md)，Git 支持范围见 [能力说明](docs/GIT_CAPABILITIES.md)。[v0.4.1 部署验收记录](docs/DEPLOYMENT_20260927.md) 仅是历史记录，不代表现有服务已经升级。源码版本更新不代表现有服务已经升级。
 
+## v0.5.3 项目定位与发布说明整理 — 2026-10-01
+
+- README 明确项目目标：利用 ChatGPT 订阅中的高能力模型与可用额度，在聊天窗口中规划任务、自动调用工具，处理授权范围内的本机项目。
+- 同步双 README，保留 GPT Pro、GPT-5.6 Sol 与社区讨论入口；模型、推理档位、额度及 App 工具支持以当前账号为准，网页端 xhigh 与 Max 的对应关系仍未核实。
+- 将 v0.5.2、v0.5.1、v0.5.0 的首页版本说明集中到本发布记录，README 仅保留链接；补齐 PR、能力与验证入口，保留历史部署边界。
+- 按用户要求将版本从 0.5.2 提升至 0.5.3，通过 [PR #8](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/8) 交付；本轮不改变工具行为、权限默认值或用户现有部署。
+
 ## v0.5.2 Tunnel 日志证据与分类修复 — 2026-09-30
 
 - 通过 [PR #7](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/7) 交付。
