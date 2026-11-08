@@ -17,6 +17,8 @@
 
 首次在默认宿主沙箱完整运行结果为 **394 passed、11 skipped、2 failed，122.64 秒**。失败仅为 `tests/test_tunnel_lifecycle.py::test_sigterm_stops_tunnel_group[15]` 和 `[2]`：执行 `ps` 查询合成子进程状态时被拒绝，`PermissionError: [Errno 1] Operation not permitted: 'ps'`。将未修改的 main 导出到隔离目录后，两项原样复测同样失败（0.76 秒），且测试／onboarding／processes 源文件与 main 逐字节一致。允许查询测试子进程状态后，使用原断言重新执行完整集合，得到上表最终通过结果；没有排除失败项或修改清理实现。
 
+首轮远端 [run 42512591958](https://github.com/macgaf/chatgpt-local-mcp-tunnel/actions/runs/42512591958) 的 Ubuntu 任务通过；Windows 为 **383 passed、21 skipped、3 failed，259.61 秒**。失败为新增专项中的 `test_additional_readonly_and_path_roundtrip`、`test_real_stdio_external_read_write_and_readonly_rejection`、`test_additional_append_delete_and_restore`：共同夹具使用 `write_text`，Windows 将 LF 转成 CRLF，而断言要求固定 LF。读取／追加保留原始字节是正确行为；修订夹具为 `write_bytes(b'external\n')`，保持严格内容断言和运行代码不变。最终远端结果须检查包含此修订的提交，不能将本机结果或此前 Ubuntu 任务扩大为三平台通过。
+
 ## 两轴复核
 
 ### Standards

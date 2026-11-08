@@ -21,7 +21,7 @@ from home_readonly_mcp.storage import digest
 def external(space, tmp_path):
     directory = tmp_path / 'external-temp'
     directory.mkdir()
-    (directory / 'a.txt').write_text('external\n', encoding='utf-8')
+    (directory / 'a.txt').write_bytes(b'external\n')
     return directory
 
 
