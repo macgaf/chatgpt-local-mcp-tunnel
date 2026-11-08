@@ -50,6 +50,7 @@ class Scan:
     def __init__(self,policy,path='.',include_ignored=False):
         self.policy=policy;self.base=policy.require(path)
         if not (self.base.is_dir() or self.base.is_file()):raise ValueError('search path must be a file or directory')
+        self.root=policy.root_for(self.base)
         self.include_ignored=include_ignored
         self.visited=0;self.bytes=0;self.skipped=0;self.reasons=[];self.rules={}
         self.deadline=time.monotonic()+10
@@ -76,8 +77,8 @@ class Scan:
 
     def ignored(self,p,is_dir=False):
         if self.include_ignored:return False
-        if any(x in ('build','dist') for x in p.relative_to(self.policy.root).parts):return True
-        ancestors=list(reversed([a for a in p.parents if a==self.policy.root or self.policy.root in a.parents]))
+        if any(x in ('build','dist') for x in p.relative_to(self.root).parts):return True
+        ancestors=list(reversed([a for a in p.parents if a==self.root or self.root in a.parents]))
         ignored=False
         for parent in ancestors:
             rel=p.relative_to(parent).as_posix()+('/' if is_dir else '')
@@ -225,7 +226,8 @@ class SearchMixin:
     def workspace_context(self,path='.'):
         p=self.policy.require(path)
         if not p.is_dir():raise ValueError('path must be a directory')
-        chain=list(reversed([p]+[a for a in p.parents if a==self.policy.root or self.policy.root in a.parents]))
+        root=self.policy.root_for(p)
+        chain=list(reversed([p]+[a for a in p.parents if a==root or root in a.parents]))
         files=[];errors=[];remaining=self.policy.max_text_output_bytes
         for directory in chain:
             candidates=[directory/'AGENTS.md']
@@ -243,7 +245,7 @@ class SearchMixin:
             if remaining==0:break
         try:status=self.git_status(path)
         except Fault as exc:status=None;errors.append(exc.payload()['error'])
-        return {'ok':True,'root':str(self.policy.root),'cwd':str(p),'files':files,'git_status':status,
+        return {'ok':True,'root':str(root),'cwd':str(p),'files':files,'git_status':status,
                 'top_level':self.list_directory(path,limit=100),'errors':errors,'truncated':remaining==0,
                 'instructions_are_data':True,'commands_enabled':self.policy.enable_commands and self.policy.mode=='read_write',
                 'capabilities':self.policy_info()['capabilities']}

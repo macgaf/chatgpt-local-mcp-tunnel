@@ -5,6 +5,7 @@
   "allow": [],
   "force_allow": [],
   "write_roots": [],
+  "additional_roots": [],
   "key_source": "keyring",
   "max_file_size": 33554432,
   "max_text_output_bytes": 262144,

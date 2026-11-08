@@ -1,3 +1,38 @@
+# 附加目录授权（2026-11-09，未发布）
+
+基线为最新 main `7b17e873a09bf3d8bd4c50a040d8bdc20e677b8d`（0.5.3），功能分支 `feat/additional-roots-current-20261109`。基础版本保留 0.5.3；没有安装或重启用户 MCP/Tunnel，没有更改用户配置、凭据、Shell 或推送开关。使用方式见 [附加目录访问](docs/ADDITIONAL_ROOTS.md)。
+
+## 本次实际验证
+
+| 检查 | 结果 |
+|---|---|
+| 最终完整回归 | `python -m pytest -q --tb=short`：**396 passed、11 skipped，119.85 秒，退出码 0** |
+| 附加目录、追加／删除、linked worktree 专项 | **64 passed、1 skipped，13.94 秒，退出码 0**；与完整回归重叠，不相加 |
+| 真实 CLI stdio self-test | 退出码 0；legacy 握手、modern 发现、文件读回、只读隐藏写工具及工具目录一致性通过 |
+| 静态与文档 | 48 个 Python 文件 AST、配置 JSON、默认值／版本、双 README 和正式内嵌提示词一致；68 个相对文件链接存在；`git diff HEAD --check` 通过 |
+
+在本机 macOS、Python 3.14.6 的隔离临时虚拟环境执行，业务测试使用合成目录、临时 HOME 和合成 Git 仓库。单根兼容、附加目录默认只读／显式读写、全局只读、越界拒绝、临时变量、SHA 冲突、备份恢复、跨根补丁预检／回滚及外部修改保留、真实 stdio 外部文件读写、二进制／ZIP 资源回读、搜索忽略／上下文、目录追加删除及跨根 linked worktree 均有实际测试。
+
+目录边界专项覆盖大小写与 NFC/NFD 等价写法、真实目录判重、HOME 上级别名拒绝、配置根别名改指、凭据／运行时路径别名拒绝、嵌套祖先被交换成链接，以及授权根位于仅搜索权限祖先下的原有访问。当前文件系统无法覆盖真正大小写敏感目录区分，该专项跳过；其他平台专用及显式未启用的外部集成用例也没有计为通过。
+
+首次在默认宿主沙箱完整运行结果为 **394 passed、11 skipped、2 failed，122.64 秒**。失败仅为 `tests/test_tunnel_lifecycle.py::test_sigterm_stops_tunnel_group[15]` 和 `[2]`：执行 `ps` 查询合成子进程状态时被拒绝，`PermissionError: [Errno 1] Operation not permitted: 'ps'`。将未修改的 main 导出到隔离目录后，两项原样复测同样失败（0.76 秒），且测试／onboarding／processes 源文件与 main 逐字节一致。允许查询测试子进程状态后，使用原断言重新执行完整集合，得到上表最终通过结果；没有排除失败项或修改清理实现。
+
+## 两轴复核
+
+### Standards
+
+初次发现的嵌套根中间祖先 no-follow 防护退化已修复：从文件系统锚点逐级检查。随后发现的仅搜索权限祖先兼容问题也已修复：中间句柄使用 `O_SEARCH`／`O_PATH`，最终父目录保留 `O_RDONLY`。新增合成竞态与权限回归通过，最终独立复核无阻塞项；common dir 文档措辞也已同步。
+
+### Spec
+
+初次发现的大小写／NFC-NFD 别名绕过只读范围、同一真实目录重复注册均已修复并通过独立复核。配置原始根与真实根同时检查保护规则；保留主 root 的相对路径、write_roots 约束和全局只读。最新主线新增的删除、追加及 linked worktree 功能已适配，最终复核无新增实质需求偏差。
+
+## 发布和部署边界
+
+代码、配置样例、README、安装 Skill、编程／Git／排错说明在同一功能分支交付。远端三平台 CI 以本分支最终提交的实际运行记录为准，本机验证不代表 Windows／Linux 或云端通过。未验证真实 Tunnel／ChatGPT 对新增目录的访问，未操作用户现有 Codex 历史，也未执行 MCP git_push 的真实远端发送。宿主 Git 同步本工具源码与该工具的网络推送验收是不同操作。
+
+---
+
 # v0.5.3 项目定位与发布说明整理（2026-10-01）
 
 按用户要求将版本从 0.5.2 提升至 0.5.3，并通过 [PR #8](https://github.com/macgaf/chatgpt-local-mcp-tunnel/pull/8) 交付 README 项目定位与发布说明整理。同步项目／源码版本、双 README、安装与排错说明；除版本标识外不改变运行逻辑和权限默认值。合并状态以 PR 为准，不代表用户现有服务已升级。

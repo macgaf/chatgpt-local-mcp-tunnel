@@ -27,11 +27,13 @@ Tunnel 另有图片/PDF/ZIP/二进制、备份恢复、文件信息、权限诊�
 
 ## linked worktree 的具体支持范围
 
-标准布局的 `.git` 文件指向主仓库 `.git/worktrees/<id>`；其 `commondir` 指向主 `.git`，`gitdir` 反向指向当前工作树的 `.git`。支持绝对及相对指针，但不接受链接组件、硬链接指针、特殊文件、无效双向关联或 root 外目标。以主仓库 common dir 加服务锁，防止不同工作树并发改共享引用时绕过互斥。
+标准布局的 `.git` 文件指向主仓库 `.git/worktrees/<id>`；其 `commondir` 指向主 `.git`，`gitdir` 反向指向当前工作树的 `.git`。支持绝对及相对指针，但不接受链接组件、硬链接指针、特殊文件、无效双向关联或未授权目标。以主仓库 common dir 加服务锁，防止不同工作树并发改共享引用时绕过互斥。
 
 读取要求当前工作树、主仓库均可访问；写 Git 还要求两处仓库范围可写。例如 root 为两者共同父目录，write_roots 可以为 `["main/**", "linked/**"]`。只授权 linked 子目录不隐含对外部主仓库写权限；工具不会自动扩大 root/write_roots。
 
-每个工作树使用自身 index、HEAD、merge/rebase 标记及 config.worktree，共享 config/objects/refs。分支切换继续拒绝抢占其他工作树正在使用的分支。子模块、任意 separate git dir、alternates 和外部 common dir 尚不支持。
+本修订也允许通过 [additional_roots](ADDITIONAL_ROOTS.md) 分别授权两处目录；各自的读写模式及主 root 原有的 write_roots 仍须满足，不因关联工作树自动授权其他路径。
+
+每个工作树使用自身 index、HEAD、merge/rebase 标记及 config.worktree，共享 config/objects/refs。分支切换继续拒绝抢占其他工作树正在使用的分支。子模块、任意 separate git dir、alternates 和未授权的 common dir 尚不支持。
 
 ## 有意保留的语义差异
 

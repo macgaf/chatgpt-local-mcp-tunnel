@@ -126,7 +126,7 @@ https://github.com/macgaf/chatgpt-local-mcp-tunnel
 - API key 使用普通项目 Runtime key，Permissions 选择 All，有效期选择 Never／永不过期；不创建组织 Admin key。
 - 我理解 All 权限比仅 Tunnels Read + Use 更广，明确选择此配置。
 - 真实 key 只写入 macOS Keychain，不进入聊天、工具输出、截图、日志、源码或明文临时文件；Tunnel ID 直接写入本项目受保护配置。
-- 保留其他应用的资源和旧 key，不抢占 FileMCP Tunnel，不改变 root、mode、write_roots、命令执行或 Git 推送开关，不配置常驻服务。
+- 保留其他应用的资源和旧 key，不抢占 FileMCP Tunnel，不改变 root、mode、write_roots、additional_roots、命令执行或 Git 推送开关，不配置常驻服务。
 
 二、采用最短可验证流程
 1. 定向检查现有仓库、必要说明、实际命令 --help，以及本项目配置和凭据。使用包含 tunnel prepare 实现的版本，保留已有修改。不要重复扫描或运行无关测试。
@@ -211,12 +211,15 @@ Runtime key：本机程序直接保存到系统凭据库，已有有效条目不
 |---|---|
 | `root` | 用户选择 `~/` 或其他现有目录；不是固定的个人项目路径 |
 | `mode` | 用户选择 `read_only` 或 `read_write` |
-| `write_roots` | 读写时确认可写子目录；空列表意味着整个所选 root 可写，不可悄悄清空现有限制 |
+| `write_roots` | 限制主 root 内的可写子目录；空列表意味着整个主 root 可写，不可悄悄清空现有限制 |
+| `additional_roots` | 默认为空；显式授权主 root 外的目录，每项独立选择只读或读写，升级保留原配置 |
 | `allow` / `deny` / `force_allow` | 保留现有文件规则；例外限具体文件，不因安装自动放宽 |
 | `enable_commands` / `enable_git_push` | 本安装流程关闭；日后需单独授权 |
 | `enable_codex_history` | 默认 true，仅在读写模式注册；保留已有显式 false，可在本机关闭 |
 | `tunnel_id` | 第 3.1 节核验后自动保存/复用；本机 `tunnel configure` 隐藏输入作为备用 |
 | `key_source` | 通常为 `keyring`；Runtime key 正文只入系统凭据库，不入 config.json |
+
+主 root 外的系统和用户临时目录可通过 `additional_roots` 分别授权，配置、临时变量与生效验证见 [附加目录访问](docs/ADDITIONAL_ROOTS.md)。全局 `read_only` 仍禁止所有写入；功能源码、用户安装和运行中服务的权限需分别核验。
 
 <details>
 <summary>已有缓存的验证命令，以及无法自动转存时的手工备用入口</summary>
@@ -445,7 +448,7 @@ local-mcp logs configure --level INFO --max-mib 5 --keep 5 --days 14
 1. 先定位已存在的仓库并核对 origin 地址、当前分支、提交及未提交修改。不要扫描或输出凭据文件。
 2. 从正确远端获取状态。工作区有修改、本地 main 与 origin/main 分叉、存在未完成的合并时，暂停源码更新并说明原因，不 stash/reset/clean/强制覆盖，不删除原分支。
 3. 条件满足时切换到 main，并只做快进更新。原 feat/local-mcp-v0.3 分支无需删除，也不再作为安装来源。
-4. 阅读 main 的 README、bootstrap.py 和 docs/INSTALL_WITH_CODEX.md。保留用户已选 root、mode、write_roots、文件规则、密钥来源、日志设置、Codex 中其他条目和无关配置。不要因升级自动开启命令或 Git 推送，也不要擅自收回已有明确授权；需要改变权限时先让我确认。
+4. 阅读 main 的 README、bootstrap.py 和 docs/INSTALL_WITH_CODEX.md。保留用户已选 root、mode、write_roots、additional_roots、文件规则、密钥来源、日志设置、Codex 中其他条目和无关配置。不要因升级自动开启命令或 Git 推送，也不要擅自收回已有明确授权；需要改变权限时先让我确认。
 5. 先运行安装计划，再执行对应平台的完整安装器；不要用 core-only 替代已有媒体依赖，也不要覆盖同名但不同的 Codex 条目。已有正确 Tunnel 和凭据优先复用，不把实际值带进聊天或命令参数。
 6. 运行 self-test 和 media-self-test，检查 logs path、logs show；凭据可用时再运行 doctor --with-tunnel。安装器检查失败时，不把它记为升级成功。
 7. 提醒我结束并重启自己管理的旧 MCP／Tunnel 进程，刷新 Codex／ChatGPT 的工具列表；不擅自终止未知进程，不建立开机自启。

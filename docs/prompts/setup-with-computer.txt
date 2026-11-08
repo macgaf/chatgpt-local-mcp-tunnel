@@ -8,7 +8,7 @@ https://github.com/macgaf/chatgpt-local-mcp-tunnel
 - API key 使用普通项目 Runtime key，Permissions 选择 All，有效期选择 Never／永不过期；不创建组织 Admin key。
 - 我理解 All 权限比仅 Tunnels Read + Use 更广，明确选择此配置。
 - 真实 key 只写入 macOS Keychain，不进入聊天、工具输出、截图、日志、源码或明文临时文件；Tunnel ID 直接写入本项目受保护配置。
-- 保留其他应用的资源和旧 key，不抢占 FileMCP Tunnel，不改变 root、mode、write_roots、命令执行或 Git 推送开关，不配置常驻服务。
+- 保留其他应用的资源和旧 key，不抢占 FileMCP Tunnel，不改变 root、mode、write_roots、additional_roots、命令执行或 Git 推送开关，不配置常驻服务。
 
 二、采用最短可验证流程
 1. 定向检查现有仓库、必要说明、实际命令 --help，以及本项目配置和凭据。使用包含 tunnel prepare 实现的版本，保留已有修改。不要重复扫描或运行无关测试。

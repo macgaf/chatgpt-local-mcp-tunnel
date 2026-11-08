@@ -12,9 +12,8 @@ from .storage import Lease, digest, expected_matches, parent_handle, read_bytes,
 class FileActions:
     def _delete_path(self, path):
         p = self.policy.require(path, write=True)
-        supplied = Path(path).expanduser()
-        supplied = supplied if supplied.is_absolute() else self.policy.root / supplied
-        if (p != supplied or p.is_symlink() or
+        # resolve 已拒绝内部链接写入，并验证配置根别名与目录身份。
+        if (p.is_symlink() or
                 getattr(p, 'is_junction', lambda: False)() or '.git' in p.parts):
             raise Fault('DELETE_PATH_DENIED', '删除目标含链接或 Git 元数据。', 'unsafe deletion target',
                         '使用真实的普通项目文件；Git 元数据只能通过 Git 工具维护。')

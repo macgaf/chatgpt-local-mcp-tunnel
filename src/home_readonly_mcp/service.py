@@ -41,7 +41,8 @@ class HomeService(SearchMixin, GitMixin, CommandMixin, FileActions, CodexHistory
         parsed = urlparse(uri)
         if parsed.scheme != 'local-mcp' or parsed.netloc not in ('file','archive'):
             raise ValueError('unsupported resource URI')
-        path = unquote(parsed.path.lstrip('/'))
+        # URI 首个斜杠是分隔符；外部绝对路径自身的斜杠必须保留。
+        path = unquote(parsed.path.removeprefix('/'))
         query = parse_qs(parsed.query)
         offset = int(query.get('offset', ['0'])[0])
         length = int(query.get('length', ['262144'])[0])
@@ -250,7 +251,7 @@ class HomeService(SearchMixin, GitMixin, CommandMixin, FileActions, CodexHistory
         if base.exists():
             for meta in base.glob('*.json'):
                 data = json.loads(meta.read_text(encoding='utf-8'))
-                if data.get('path') == str(p) and data.get('root') == str(self.policy.root):
+                if data.get('path') == str(p) and data.get('root') == str(self.policy.root_for(p)):
                     found.append({k: data[k] for k in ('id','sha256','created_at','size')})
         found.sort(key=lambda x: x['created_at'], reverse=True)
         return {'ok': True, 'backups': found[:100], 'truncated': len(found) > 100}
@@ -261,7 +262,7 @@ class HomeService(SearchMixin, GitMixin, CommandMixin, FileActions, CodexHistory
             raise ValueError('invalid backup id')
         base = self.policy.state_dir / 'backups'
         meta = json.loads((base / (backup_id+'.json')).read_text(encoding='utf-8'))
-        if meta.get('path') != str(p) or meta.get('root') != str(self.policy.root):
+        if meta.get('path') != str(p) or meta.get('root') != str(self.policy.root_for(p)):
             raise Fault('BACKUP_SCOPE_MISMATCH', '备份不属于该文件/root。', backup_id, '使用 list_backups 返回的对应备份。')
         with (base / (backup_id+'.bin')).open('rb') as f:
             data = f.read(self.policy.max_file_size+1)
@@ -296,11 +297,13 @@ class HomeService(SearchMixin, GitMixin, CommandMixin, FileActions, CodexHistory
 
     def diagnose(self, path=None):
         result = {'ok': True, 'mode': self.policy.mode, 'root': str(self.policy.root),
+                  'additional_roots': self.policy.summary()['additional_roots'],
                   'capabilities': capability_summary(self),
                   'shell_jobs': {'enabled': self.policy.enable_commands and self.policy.mode == 'read_write', 'active': [j.id for j in self.commands.jobs.values() if not j.done.is_set()], 'gate': 'overlapping workspace only'},
                   'windows_security': 'path checks, not an OS sandbox' if os.name == 'nt' else 'POSIX no-follow directory descriptors'}
         if path is not None:
             p = self.policy.require(path, must_exist=False)
+            result['authorized_root'] = str(self.policy.root_for(p))
             candidate = p / '.local-mcp-capability-probe' if p.is_dir() else p
             try:
                 self.policy.resolve(str(candidate), write=True)

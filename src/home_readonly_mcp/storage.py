@@ -43,19 +43,26 @@ def parent_handle(policy, path):
     Windows uses revalidation and no-link policy, not a same-user adversarial sandbox.
     """
     path = Path(path)
+    policy.root_for(path)
+    # 从文件系统锚点逐级检查，授权根自身的中间祖先也不能被换成链接。
+    root = Path(path.anchor)
     if os.name == 'nt':
-        cur = policy.root
-        for part in path.relative_to(policy.root).parts[:-1]:
+        cur = root
+        for part in path.relative_to(root).parts[:-1]:
             cur /= part
             if cur.is_symlink() or getattr(cur, 'is_junction', lambda: False)():
                 raise Fault('REPARSE_POINT_DENIED', '拒绝重解析目录。', str(cur), '使用真实目录。')
         yield None
         return
     flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
-    fd = os.open(policy.root, flags)
+    search_flags = (getattr(os, 'O_SEARCH', getattr(os, 'O_PATH', os.O_RDONLY)) |
+                    os.O_DIRECTORY | os.O_NOFOLLOW)
+    parts = path.relative_to(root).parts[:-1]
+    # 祖先只需搜索权限；最终父目录保留可 fsync 的普通目录句柄。
+    fd = os.open(root, search_flags if parts else flags)
     try:
-        for part in path.relative_to(policy.root).parts[:-1]:
-            nxt = os.open(part, flags, dir_fd=fd)
+        for index, part in enumerate(parts):
+            nxt = os.open(part, flags if index == len(parts)-1 else search_flags, dir_fd=fd)
             os.close(fd)
             fd = nxt
         yield fd
@@ -165,7 +172,7 @@ def snapshot(policy, path, old):
     write_private(base / (backup_id + '.bin'), old)
     write_private(base / (backup_id + '.json'), json.dumps({
         'id': backup_id, 'path': str(path), 'sha256': digest(old), 'created_at': time.time(),
-        'root': str(policy.root), 'size': len(old)}, ensure_ascii=False).encode())
+        'root': str(policy.root_for(path)), 'size': len(old)}, ensure_ascii=False).encode())
     return backup_id
 
 

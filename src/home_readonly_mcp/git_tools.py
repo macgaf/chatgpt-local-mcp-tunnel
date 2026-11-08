@@ -94,11 +94,12 @@ class GitTools(BranchActions):
         if not p.is_dir():raise ValueError('repo_path must be a directory')
         if initializing:
             return p
+        boundary=self.policy.root_for(p)
         current=p
         while not (current/'.git').exists() and not (current/'.git').is_symlink():
-            if current==self.policy.root:
+            if current==boundary:
                 raise Fault('NOT_A_GIT_REPOSITORY','授权目录内未找到 Git 仓库。',repo_path,
-                            '选择仓库或使用 git_init；不会向 root 外搜索。')
+                            '选择仓库或使用 git_init；不会向所属授权根目录外搜索。')
             current=current.parent
             self.policy.require(str(current))
         return current

@@ -30,7 +30,7 @@ v0.4.1 新增三个受控工具：
 
 配置必须是有界普通文件，拒绝符号链接、硬链接和特殊文件。继续拒绝外部 include、filter、credential helper、HTTP 凭据路径、SSH 命令、部分克隆等危险配置。`config.worktree` 内的 `core.worktree` 只有规范化路径和解析后的路径都恰好等于当前授权仓库、且路径组件无链接时才允许；不允许裸仓库，也不改写用户配置。配置错误不回显可能含敏感值的 Git 解析原文。
 
-v0.5.0 已支持 `.git` 为重定向文件的标准 linked worktree：要求工作树与主仓库都在授权 root 内，校验 gitdir/commondir/反向注册，写操作还要求两处均在 write_roots 内。普通文件仍不能直接读写 Git 元数据。子模块 gitfile、任意 separate git dir、root 外 common dir 和 alternates 继续拒绝。详见 [能力对照](FILEMCP_PARITY.md)；源码支持不代表已有实例已升级。
+v0.5.0 起支持 `.git` 为重定向文件的标准 linked worktree，校验 gitdir/commondir/反向注册。本修订允许工作树与主仓库位于不同的已授权根中：两处都须可访问，写操作还须同时满足各自目录模式与主 root 的 write_roots。普通文件仍不能直接读写 Git 元数据。子模块 gitfile、任意 separate git dir、未授权的 common dir 和 alternates 继续拒绝。目录配置见 [附加目录访问](ADDITIONAL_ROOTS.md)，其余限制见 [能力对照](FILEMCP_PARITY.md)；源码支持不代表已有实例已升级。
 
 Git 官方依据：[工作树配置](https://git-scm.com/docs/git-worktree#_configuration_file)、[分支名规则](https://git-scm.com/docs/git-check-ref-format)。
 
@@ -59,4 +59,4 @@ Git 官方依据：[工作树配置](https://git-scm.com/docs/git-worktree#_conf
 
 ## 部署边界
 
-本修复不提供远程改权限、更新自身安装、重启自身或修改凭据的工具；不自动启用 Shell 或推送。安装/升级需保留原 root/mode/write_roots、凭据、日志和自启设置，由明确授权的本机流程执行。发布后重启正确的 MCP/Tunnel 实例并刷新客户端工具目录，不能用 GitHub 已更新代替实际部署证据。
+本修复不提供远程改权限、更新自身安装、重启自身或修改凭据的工具；不自动启用 Shell 或推送。安装/升级需保留原 root/mode/write_roots/additional_roots、凭据、日志和自启设置，由明确授权的本机流程执行。发布后重启正确的 MCP/Tunnel 实例并刷新客户端工具目录，不能用 GitHub 已更新代替实际部署证据。

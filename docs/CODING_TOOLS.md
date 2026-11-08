@@ -18,6 +18,8 @@
 
 ## 本机开启命令
 
+主根目录之外的系统／用户临时目录可通过本机 `additional_roots` 配置授权，详见 [附加目录访问](ADDITIONAL_ROOTS.md)。各根独立指定模式，全局只读仍禁止写入；`write_roots` 保持约束主 root，外部目录采用绝对路径。目录授权不改变命令和推送的独立开关，也不构成 Shell 沙箱。
+
 ```bash
 # root/mode 须先由用户选择；这里不预设个人目录或读写权限。
 local-mcp configure --enable-commands --acknowledge-unsandboxed-commands
@@ -63,7 +65,7 @@ Windows PowerShell 的包装器会保留最终原生命令的非零退出码，�
 
 Git 不依赖 Shell 开关；只读有 status/log/diff/branches，read_write 才有 init/add/commit/create_branch/switch_branch。分支操作和能力诊断详见 [Git 能力说明](GIT_CAPABILITIES.md)。工具使用固定 argv，禁用 hooks、fsmonitor、外部 diff/textconv、签名、自动维护、隐式 lazy fetch；忽略全局/系统 Git 配置。路径按字面量处理，不能注入 flags/pathspec magic。
 
-支持普通 `.git` 目录，以及同一授权 root 内、Git 双向注册关系完整的 linked worktree（`.git` 文件、`commondir`、反向 `gitdir`）。读取须允许访问主仓库和当前工作树；写操作要求两处仓库范围均可写，因为引用与对象共享。所有工作树以 common dir 获取同一服务锁。支持经双配置安全检查的 `extensions.worktreeConfig` / `config.worktree`。submodule、任意 separate git dir、root 外的 common dir、object alternates、符号链接或多硬链接元数据，以及外部 include/filter/HTTP 凭据配置仍拒绝。**不会为了兼容自动取消这些检查**。Git LFS filter 等配置需要在本机单独处理，本版不宣称完整支持所有 Git 布局。
+支持普通 `.git` 目录，以及授权目录集合内、Git 双向注册关系完整的 linked worktree（`.git` 文件、`commondir`、反向 `gitdir`）。主仓库和工作树可以位于不同的已授权根中。读取须允许访问两处；写操作要求两处仓库范围均可写，因为引用与对象共享。所有工作树以 common dir 获取同一服务锁。支持经双配置安全检查的 `extensions.worktreeConfig` / `config.worktree`。submodule、任意 separate git dir、未授权的 common dir、object alternates、符号链接或多硬链接元数据，以及外部 include/filter/HTTP 凭据配置仍拒绝。**不会为了兼容自动取消这些检查**。Git LFS filter 等配置需要在本机单独处理，本版不宣称完整支持所有 Git 布局。
 
 Git 文件操作仍受 root/deny/write_roots 检查；`git_add` 或提交含未授权、敏感、链接或超限文件会整次拒绝。`git_diff`/`git_status` 过滤拒绝路径。若仅授权某个仓库的部分子目录可写，仓库级索引/提交可能被范围检查拒绝；请明确授权需要维护 Git 索引的仓库。
 

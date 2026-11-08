@@ -22,7 +22,8 @@ def capability_summary(service):
         'shell_enabled': 'run_command' in specs,
         'codex_history_enabled': 'save_conversation_to_codex' in specs,
         'git_push_enabled': 'git_push' in specs,
-        'write_scope_semantics': 'restricted_write_roots' if service.policy.write_roots else 'root_minus_denies',
+        'write_scope_semantics': ('multiple_roots_with_individual_modes' if service.policy.additional_roots else
+                                  'restricted_write_roots' if service.policy.write_roots else 'root_minus_denies'),
         'tool_count': len(specs),
         'tool_names': sorted(specs),
         'tool_catalog_sha256': fingerprint,

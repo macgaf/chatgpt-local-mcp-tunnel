@@ -28,12 +28,14 @@ ChatGPT 无法连接时，先检查本项目的运行实例，再排查 App 绑�
 
 | 错误码/现象 | 含义 | 处理 |
 |---|---|---|
-| CONFIG_MISSING / INVALID_ROOT | 未配置/目录不存在 | configure，使用真实 root |
-| ROOT_TOO_BROAD | root 是 HOME 上级 | 改为 HOME/项目/明确外部数据目录 |
+| CONFIG_MISSING / INVALID_ROOT | 未配置，或主／附加目录不存在 | 在本机配置真实目录，检查启动环境中的临时变量；见 [附加目录访问](ADDITIONAL_ROOTS.md) |
+| ROOT_TOO_BROAD | 主根或附加根是 HOME 上级 | 改为 HOME/项目/明确外部数据目录 |
+| READ_ONLY_ROOT | 最具体的附加根为只读 | 在本机按已授权范围设置该条目模式并重启；全局 read_only 仍禁止写入 |
+| ROOT_ALIAS_CHANGED | 配置的目录别名被改指 | 在本机核查链接及真实目录后重启，不自动授权新目标 |
 | READ_ONLY_MODE | 本地只读；提示词不能提升 | 本机 configure --mode read_write，重启并刷新工具列表 |
 | POLICY_DENIED | 命中具体 deny 或凭据保护 | 看 matched_rule；只在本机审核规则，不扩大 HOME 来绕过 |
 | PROTECTED_RUNTIME | 访问 MCP 自身配置、安装、私有状态 | 用本机 CLI 管理，不通过模型自改权限 |
-| OUTSIDE_ROOT / PATH_TRAVERSAL | 越界或 ../ | 使用授权范围内真实路径 |
+| OUTSIDE_ROOT / PATH_TRAVERSAL | 不在主根／附加根内，或包含 ../ | 使用已授权的真实绝对路径；需要外部临时目录时在本机配置 additional_roots |
 | SYMLINK_WRITE_DENIED / REPARSE_POINT_DENIED | 写路径含链接 | 使用真实路径；不要禁用检查 |
 | HARDLINK_DENIED | 多硬链接可能绕过路径过滤 | 对普通授权数据创建正常副本，不链接凭据 |
 | PRECONDITION_REQUIRED | 文件修改／删除缺少原文件 SHA | 先 read_file 或 file_info |
