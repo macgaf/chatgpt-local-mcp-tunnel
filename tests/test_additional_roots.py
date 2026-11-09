@@ -107,8 +107,9 @@ def test_missing_env_root_and_duplicate_are_rejected(space, external, monkeypatc
 
 
 @pytest.mark.parametrize('name', ['.env', '.ssh/private', 'private.key', 'secrets/file'])
-def test_additional_keeps_sensitive_path_rules(space, external, name):
+def test_additional_honors_explicit_path_rules(space, external, name):
     policy = policy_for(space, external, mode='read_write')
+    policy.deny = [name]
     with pytest.raises(Fault) as got:
         policy.resolve(str(external / name))
     assert got.value.code == 'POLICY_DENIED'
@@ -333,7 +334,7 @@ def test_credentials_runtime_and_hardlinks_stay_protected(space, external):
         with pytest.raises(Fault) as got:
             service.read_file(str(external / 'hardlink'))
         assert got.value.code == 'HARDLINK_DENIED'
-        sensitive = external / '.aws'
+        sensitive = space[0] / '.aws'
         sensitive.mkdir()
         with pytest.raises(Fault) as got:
             policy_for(space, sensitive, mode='read_write')

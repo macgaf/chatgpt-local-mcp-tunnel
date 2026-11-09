@@ -40,6 +40,7 @@ def test_strict_schema_errors(space,args):
 
 
 def test_error_cause_roundtrip(space):
+    space[2].deny.append('.env')
     result=call(Protocol(space[3]),'tools/call',{'name':'read_file','arguments':{'path':'.env'}})['result']
     assert result['isError']
     obj=result['structuredContent']['error']

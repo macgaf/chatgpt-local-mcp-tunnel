@@ -6,16 +6,25 @@ from home_readonly_mcp.errors import Fault
 from home_readonly_mcp.policy import Policy, locations
 from home_readonly_mcp.service import HomeService
 
-@pytest.mark.parametrize('name',['.ssh/private','.aws/credentials','.gnupg/private','.kube/config',
-    '.codex/auth.json','.docker/config.json','.git-credentials','.npmrc','.env','.env.local',
-    'project/.env','.env.example','nested/credentials.json','private.key','public.pem',
-    'a/secrets/file','node_modules/code.js','.git/config','Library/Keychains/login.keychain-db',
-    'Library/Application Support/Google/Chrome/Default/Cookies','.local/share/keyrings/login.keyring'])
-def test_denies_sensitive(space,name):
+@pytest.mark.parametrize('name',['node_modules/code.js','.git/config','.venv/config',
+    '__pycache__/module.pyc','.Trash/file','Library/Caches/file'])
+def test_default_structure_and_cache_exclusions(space,name):
     home,root,policy,svc=space
     with pytest.raises(Fault) as got:
         policy.resolve(name)
     assert got.value.code=='POLICY_DENIED'
+
+@pytest.mark.parametrize('name', ['.ssh/nonstandard-name', '.aws/credentials.py', '.kube/config',
+    '.codex/auth.json', '.docker/config.json', '.netrc', 'Library/Keychains/custom',
+    'Library/Application Support/Google/Chrome/Default/Cookies', '.local/share/keyrings/custom',
+    'AppData/Roaming/Microsoft/Credentials/custom', 'AppData/Local/Google/Chrome/User Data/custom'])
+def test_actual_user_credential_locations_remain_protected(space,name):
+    home=space[0]
+    policy=Policy(root=home,force_allow=[name])
+    with pytest.raises(Fault) as got:
+        policy.resolve(str(home/name))
+    assert got.value.code=='POLICY_DENIED'
+    assert (home/name).is_relative_to(Path(got.value.details['matched_rule']))
 
 @pytest.mark.parametrize('name',['../other','/etc/passwd','a/../../x'])
 def test_outside(space,name):
@@ -35,8 +44,7 @@ def test_mode_is_enforced_even_direct_call(space):
     assert not (space[1]/'new').exists()
 
 def test_exact_force_allow_not_hard_protected(space):
-    p=space[2]
-    p.force_allow=['.env.example','.ssh/id_ed25519']
+    p=Policy(root=space[0],deny=['.env.example'],force_allow=['.env.example','.ssh/id_ed25519'])
     assert p.resolve('.env.example')
     with pytest.raises(Fault): p.resolve('.ssh/id_ed25519')
 
@@ -80,8 +88,9 @@ def test_symlink_paths(space,tmp_path):
     assert got.value.code=='SYMLINK_WRITE_DENIED'
     (root/'outside').symlink_to(tmp_path)
     with pytest.raises(Fault):svc.read_file('outside/file')
-    (root/'.env').write_text('blocked')
-    (root/'masked').symlink_to(root/'.env')
+    p.deny.append('blocked.txt')
+    (root/'blocked.txt').write_text('blocked')
+    (root/'masked').symlink_to(root/'blocked.txt')
     with pytest.raises(Fault):svc.read_file('masked')
     assert 'masked' not in [x['name'] for x in svc.list_directory()['entries']]
 

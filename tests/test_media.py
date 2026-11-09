@@ -107,13 +107,15 @@ def test_zip_images_text_pdf_and_filtering(space):
         ('../escape','bad'),('.env','secret'),('.ssh/key','private')])
     (space[1]/'data.zip').write_bytes(archive)
     svc=space[3]
+    svc.policy.deny.append('.env')
     listing=svc.list_archive('data.zip')
-    assert listing['skipped_unsafe_or_denied']==3
+    assert listing['skipped_unsafe_or_denied']==2
     assert decoded_image(svc.read_archive_member('data.zip','pics/1.png'))==(320,180)
     assert svc.read_archive_member('data.zip','README.txt')['content']=='中文'
     assert max(decoded_image(svc.read_archive_member('data.zip','report.pdf')))==1600
     assert not (space[1]/'pics').exists()
     with pytest.raises(Fault):svc.read_archive_member('data.zip','.env')
+    assert svc.read_archive_member('data.zip','.ssh/key',view='text')['content']=='private'
     assert (space[1]/'data.zip').read_bytes()==archive
 
 

@@ -67,7 +67,7 @@ Git 不依赖 Shell 开关；只读有 status/log/diff/branches，read_write 才
 
 支持普通 `.git` 目录，以及授权目录集合内、Git 双向注册关系完整的 linked worktree（`.git` 文件、`commondir`、反向 `gitdir`）。主仓库和工作树可以位于不同的已授权根中。读取须允许访问两处；写操作要求两处仓库范围均可写，因为引用与对象共享。所有工作树以 common dir 获取同一服务锁。支持经双配置安全检查的 `extensions.worktreeConfig` / `config.worktree`。submodule、任意 separate git dir、未授权的 common dir、object alternates、符号链接或多硬链接元数据，以及外部 include/filter/HTTP 凭据配置仍拒绝。**不会为了兼容自动取消这些检查**。Git LFS filter 等配置需要在本机单独处理，本版不宣称完整支持所有 Git 布局。
 
-Git 文件操作仍受 root/deny/write_roots 检查；`git_add` 或提交含未授权、敏感、链接或超限文件会整次拒绝。`git_diff`/`git_status` 过滤拒绝路径。若仅授权某个仓库的部分子目录可写，仓库级索引/提交可能被范围检查拒绝；请明确授权需要维护 Git 索引的仓库。
+Git 文件操作仍受 root/deny/write_roots 检查；`git_add` 或提交含未授权、实际受保护位置、明确拒绝、链接或超限文件会整次拒绝。普通源码不会因文件名含 credentials/secrets 等被自动过滤，详见 [文件访问规则](FILE_ACCESS_POLICY.md)。`git_diff`/`git_status` 过滤拒绝路径。若仅授权某个仓库的部分子目录可写，仓库级索引/提交可能被范围检查拒绝；请明确授权需要维护 Git 索引的仓库。
 
 提交身份使用本机配置的 `git_user_name`/`git_user_email`，或仓库级 user.name/user.email，不凭空冒充用户，也不读取全局配置来执行扩展。
 

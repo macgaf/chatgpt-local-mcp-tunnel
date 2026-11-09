@@ -92,8 +92,9 @@ def test_limits_and_text_ranges(space):
     with pytest.raises(Fault):svc.write_file('large','123')
 
 
-def test_search_skips_sensitive_and_has_budget(space):
+def test_search_skips_explicit_denied_paths_and_has_budget(space):
     root,p,svc=space[1:]
+    p.deny.append('.env')
     (root/'.env').write_text('NEEDLE')
     (root/'b.txt').write_text('needle')
     assert [r['path'] for r in svc.search_text('NEEDLE')['results']]==['b.txt']

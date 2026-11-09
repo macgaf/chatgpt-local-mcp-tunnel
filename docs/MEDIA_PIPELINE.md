@@ -6,7 +6,7 @@
 
 - `read_image` 返回 `type=image`、mimeType、data；不是把 Base64 包进普通文本 JSON。允许 EXIF 纠正、按原图方向坐标裁剪/缩放；元数据解释坐标映射。
 - `render_pdf_page` 本机 PDFium 渲染单页，返回 ImageContent。`read_document` 文字提取不代表图表已读，扫描件没有执行 OCR。
-- `list_archive`/`read_archive_member` 直接读取 ZIP 中的图像、PDF、文本和原始二进制。拒绝危险路径、凭据、链接、重复名称和高压缩比；不落地解压。
+- `list_archive`/`read_archive_member` 直接读取 ZIP 中的图像、PDF、文本和原始二进制。拒绝危险路径、明确文件规则拒绝的成员、链接、重复名称和高压缩比；不落地解压，也不按成员文件名推测秘密。规则见 [文件访问规则](FILE_ACCESS_POLICY.md)。
 - `read_binary` 返回 EmbeddedResource；URI 带 offset/length/sha256，可通过 `resources/read` 拉取后续块。ZIP 资源使用独立 archive URI，避免与普通文件路径混淆。每块均有 hash，整文件版本变化时拒绝继续。
 - `visual_probe` 在内存生成随机字符图片，文本仅有答案哈希。用户/模型必须看图片，不能通过文本答案假通过。
 

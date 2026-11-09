@@ -48,8 +48,9 @@ def test_git_readonly(space):
     assert 'git_status' in specs and not {'git_add','git_push','git_commit'}&specs.keys()
 
 
-def test_git_sensitive_paths_not_exposed_or_staged(space):
+def test_git_explicit_denied_paths_not_exposed_or_staged(space):
     root,p,svc=setup(space)
+    p.deny.append('.env')
     (root/'.env').write_text('NEVER_EXPOSE_PRIVATE_VALUE')
     raw(root,'add','.env');raw(root,'-c','user.name=T','-c','user.email=t@example.invalid','commit','-m','sensitive fixture')
     (root/'.env').write_text('NEVER_EXPOSE_PRIVATE_VALUE_2')

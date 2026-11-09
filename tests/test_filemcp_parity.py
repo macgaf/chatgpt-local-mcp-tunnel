@@ -46,12 +46,14 @@ def test_recursive_delete_preflight_and_recovery(space):
     assert (folder / 'data.txt').read_text(encoding='utf-8') == 'changed' and (folder / 'empty').is_dir()
 
 
-@pytest.mark.parametrize('kind', ['secret', 'git', 'link', 'hardlink'])
+@pytest.mark.parametrize('kind', ['denied', 'git', 'link', 'hardlink'])
 def test_directory_rejects_entire_batch_before_delete(space, kind):
-    _, root, _, svc = space
+    _, root, policy, svc = space
     folder = root / 'folder'; folder.mkdir()
     (folder / 'allowed.txt').write_text('keep')
-    if kind == 'secret': (folder / '.env').write_text('synthetic')
+    if kind == 'denied':
+        policy.deny.append('folder/.env')
+        (folder / '.env').write_text('synthetic')
     if kind == 'git': (folder / '.git').mkdir()
     if kind == 'link':
         try: (folder / 'alias').symlink_to(root / 'a.txt')

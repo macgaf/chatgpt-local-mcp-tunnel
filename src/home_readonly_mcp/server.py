@@ -66,7 +66,7 @@ DESCRIPTIONS = {
     'read_image':'返回真正 MCP ImageContent；支持缩放、EXIF 方向纠正和 crop。无需手工上传。',
     'render_pdf_page':'将一页 PDF 在本机渲染为 MCP ImageContent；用于核查图片和图表。',
     'read_document':'提取 PDF 指定页文字；图表仍需 render_pdf_page。不自动 OCR。',
-    'list_archive':'列出 ZIP 内允许的成员，不落地解压；过滤敏感文件和危险路径。',
+    'list_archive':'列出 ZIP 内允许的成员，不落地解压；过滤危险路径和被文件规则拒绝的成员。',
     'read_archive_member':'直接读取 ZIP 成员：文本、图片、PDF 页面或二进制资源。无需上传整个 ZIP。',
     'read_binary':'传输有哈希校验的分块 EmbeddedResource；客户端须支持二进制资源才能自动落盘。',
     'diagnose':'分别诊断能力、目标文件写权限、Git 兼容性及本服务锁；不会试写、取消或解锁未知进程。',

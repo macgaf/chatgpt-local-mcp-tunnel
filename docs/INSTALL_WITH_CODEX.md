@@ -40,6 +40,8 @@ Chrome 宿主中创建的 Python 可执行副本可能带 `com.apple.quarantine`
 
 主 root 外的临时或数据目录通过 `additional_roots` 单独授权，默认不添加。升级保留已有条目；仅在用户明确选择后变更路径和权限。各目录的配置、临时环境变量、重叠范围与验证步骤见 [附加目录访问](ADDITIONAL_ROOTS.md)。配置只在本机管理，变更后重启用户管理的 MCP/Tunnel；源码更新不代表已部署生效。
 
+文件名不用于推测秘密，默认策略和明确用户级存储位置见 [文件访问规则](FILE_ACCESS_POLICY.md)。升级保留已有显式 `deny`；用户授权清理旧文件名规则时，备份后只移除对应项，保留其他规则、目录和开关，再核对实际实例的 `policy_info`。
+
 确认后检查 Python 3.11+、Git、Codex CLI，以相同的非敏感 root/mode 参数先运行 `bootstrap.py --plan`，再用对应平台的完整安装入口执行。缺系统依赖时说明并征求安装授权，不自行 sudo。全程不因为准备凭据而开启 MCP Shell 或 Git 推送。
 
 ## 先消费已有缓存，再处理缺失

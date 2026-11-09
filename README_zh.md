@@ -56,7 +56,7 @@ ChatGPT 聊天窗口 → OpenAI Secure MCP Tunnel → 本机 MCP → 你授权�
 | 图片 | `read_image` | 直接返回图片，支持缩放、裁剪、EXIF 方向及坐标映射 | 读取 |
 | PDF | `read_document` | 提取 PDF 指定页文字；目前不是通用 Office 解析器 | 读取 |
 | PDF | `render_pdf_page` | 将 PDF 指定页渲染为图片，查看图表和版面 | 读取 |
-| ZIP | `list_archive` | 列出允许访问的 ZIP 成员，过滤危险和敏感条目 | 读取 |
+| ZIP | `list_archive` | 列出允许访问的 ZIP 成员，过滤危险或被文件规则拒绝的条目 | 读取 |
 | ZIP | `read_archive_member` | 直接读取 ZIP 内文本、图片、PDF 页面或二进制资源 | 读取 |
 | 二进制 | `read_binary` | 分块传输原始字节，返回偏移量及哈希 | 读取 |
 | 图像验收 | `visual_probe` | 生成随机字符图片，检验模型是否真的收到图片 | 读取 |
@@ -80,6 +80,8 @@ ChatGPT 聊天窗口 → OpenAI Secure MCP Tunnel → 本机 MCP → 你授权�
 配套提供：**三平台安装脚本、Codex 自动注册、系统密钥库、Tunnel 配置、持久日志、分层诊断和脱敏报告**。这些是本机管理功能，不计入 MCP 工具。
 
 开始使用前记住三点：**命令执行和推送默认关闭**；已有文件覆盖需要原 SHA-256；图片必须经客户端实际视觉验收。Shell 开启后不是 OS 沙箱，文件黑名单不能限制任意命令访问其他目录／网络。跨文件补丁是失败后尽力恢复，不是多文件原子事务。`.blend`、视频、点云和 Office 的专用解析器尚未实现，二进制传输也不等于自动进入 ChatGPT 沙箱。详细参数和限制见 [编程工具说明](docs/CODING_TOOLS.md)及[非文本文件说明](docs/MEDIA_PIPELINE.md)。
+
+授权项目中的普通文件不因 `credentials`、`secrets`、`.env`、`.key` 等名称被自动判为秘密。默认只排除元数据、依赖和缓存；实际用户级凭据存储位置和明确配置的文件规则继续保护。旧配置中保存的文件名规则需要在本机按授权清理，详见 [文件访问规则](docs/FILE_ACCESS_POLICY.md)。
 
 ## 3. 如何用
 

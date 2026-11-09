@@ -33,7 +33,7 @@ ChatGPT 无法连接时，先检查本项目的运行实例，再排查 App 绑�
 | READ_ONLY_ROOT | 最具体的附加根为只读 | 在本机按已授权范围设置该条目模式并重启；全局 read_only 仍禁止写入 |
 | ROOT_ALIAS_CHANGED | 配置的目录别名被改指 | 在本机核查链接及真实目录后重启，不自动授权新目标 |
 | READ_ONLY_MODE | 本地只读；提示词不能提升 | 本机 configure --mode read_write，重启并刷新工具列表 |
-| POLICY_DENIED | 命中具体 deny 或凭据保护 | 看 matched_rule；只在本机审核规则，不扩大 HOME 来绕过 |
+| POLICY_DENIED | 命中明确 deny 或实际用户级凭据存储位置 | 看 matched_rule；普通源码被旧名称规则拒绝时按[文件访问规则](FILE_ACCESS_POLICY.md)检查本机配置，无需逐文件例外 |
 | PROTECTED_RUNTIME | 访问 MCP 自身配置、安装、私有状态 | 用本机 CLI 管理，不通过模型自改权限 |
 | OUTSIDE_ROOT / PATH_TRAVERSAL | 不在主根／附加根内，或包含 ../ | 使用已授权的真实绝对路径；需要外部临时目录时在本机配置 additional_roots |
 | SYMLINK_WRITE_DENIED / REPARSE_POINT_DENIED | 写路径含链接 | 使用真实路径；不要禁用检查 |

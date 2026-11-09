@@ -40,6 +40,7 @@ def test_grep_literal_regex_context_count_pagination(space):
 def test_ignores_and_policy_cannot_be_disabled(space):
     pytest.importorskip('pathspec')
     root,p,svc=fixture(space)
+    p.deny.append('.env')
     (root/'.gitignore').write_text('ignored.py\n*.tmp\n!keep.tmp\n',encoding='utf-8')
     (root/'ignored.py').write_text('Widget')
     (root/'skip.tmp').write_text('Widget');(root/'keep.tmp').write_text('Widget')

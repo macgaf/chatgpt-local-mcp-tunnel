@@ -238,6 +238,7 @@ def test_tunnel_persists_categories_not_raw_output(space):
 
 def test_service_logs_failures_and_leaves_stdout_clean(space,capsys):
     from home_readonly_mcp.server import Protocol
+    space[2].deny.append('.env')
     p=Protocol(space[3])
     (space[1]/'private.txt').write_text('PRIVATE_BODY')
     result=p.result({'jsonrpc':'2.0','id':19,'method':'tools/call',

@@ -161,7 +161,8 @@ def check_member(info, policy):
         raise Fault('ARCHIVE_LINK_DENIED', '不读取压缩包中的符号链接。', name, '使用普通文件成员。')
     ok, why, pat = policy.rule(name)
     if not ok:
-        raise Fault('POLICY_DENIED', '压缩包内敏感文件也受黑名单限制。', why, '不要打包凭据文件。', matched_rule=pat)
+        raise Fault('POLICY_DENIED', '压缩包成员被文件访问规则拒绝。', why,
+                    '查看 matched_rule；在本机核对明确配置的文件规则。', matched_rule=pat)
     if info.flag_bits & 1:
         raise Fault('ARCHIVE_ENCRYPTED', '不自动解密 ZIP。', '成员已加密。', '在本机生成仅包含授权数据的非加密副本。')
     if info.file_size > policy.max_file_size or info.file_size / max(1, info.compress_size) > 200:

@@ -125,8 +125,9 @@ def test_hidden_index_changes_refused(space, flag):
     assert (root / 'a.txt').read_text() == 'hidden edits'
 
 
-def test_switch_honors_protected_target_path(space):
-    root, _, svc = ready(space)
+def test_switch_honors_explicit_denied_target_path(space):
+    root, policy, svc = ready(space)
+    policy.deny.append('.env')
     svc.git_create_branch('fixture/secret')
     (root / '.env').write_text('PRIVATE_FIXTURE')
     commit_raw(root, '.env')

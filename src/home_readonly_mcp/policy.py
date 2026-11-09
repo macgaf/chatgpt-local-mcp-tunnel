@@ -11,24 +11,34 @@ import unicodedata
 from .errors import Fault
 
 APP = 'chatgpt-local-mcp-tunnel'
-HARD_DENY = [
-    '.ssh/**', '**/.ssh/**', '.gnupg/**', '.aws/**', '.azure/**', '.kube/**',
+CREDENTIAL_LOCATIONS = [
+    '.ssh', '.gnupg', '.aws', '.azure', '.kube',
     '.codex/auth.json', '.claude/.credentials.json', '.docker/config.json',
     '.git-credentials', '.netrc', '.npmrc', '.pypirc',
-    'Library/Keychains/**', 'Library/**/Cookies*', 'Library/**/Login Data*',
-    'Library/Application Support/Google/Chrome/**', 'Library/Application Support/Firefox/**',
-    'Library/Application Support/Microsoft Edge/**', 'Library/Safari/**',
-    '.config/google-chrome/**', '.config/chromium/**', '.mozilla/**',
-    '.local/share/keyrings/**', '.local/share/kwalletd/**', '.config/kwalletrc',
-    'AppData/**/Microsoft/Credentials/**', 'AppData/**/Microsoft/Vault/**',
-    'AppData/**/Google/Chrome/User Data/**', 'AppData/**/Microsoft/Edge/User Data/**',
-    '**/id_rsa', '**/id_ed25519', '**/id_ecdsa',
+    'Library/Keychains', 'Library/Cookies',
+    'Library/Application Support/Google/Chrome', 'Library/Application Support/Firefox',
+    'Library/Application Support/Microsoft Edge', 'Library/Safari',
+    '.config/google-chrome', '.config/chromium', '.mozilla',
+    '.local/share/keyrings', '.local/share/kwalletd', '.config/kwalletrc',
+    'AppData/Local/Microsoft/Credentials', 'AppData/Roaming/Microsoft/Credentials',
+    'AppData/Local/Microsoft/Vault', 'AppData/Roaming/Microsoft/Vault',
+    'AppData/Local/Google/Chrome/User Data', 'AppData/Local/Microsoft/Edge/User Data',
 ]
-DEFAULT_DENY = ['**/.env', '**/.env.*', '**/*.pem', '**/*.key', '**/*.p12', '**/*.pfx',
-    '**/*credentials*', '**/secrets/**', '**/.git/**', '**/node_modules/**', '**/.venv/**',
-    '**/__pycache__/**', '.Trash/**', 'Library/Caches/**',
-    '.zsh_history', '.bash_history', '.python_history', '.config/**/tokens*',
-    '.config/**/secrets*', '.config/**/auth.json']
+# 默认只保留结构和缓存范围；不按文件名、扩展名或关键词猜测秘密。
+DEFAULT_DENY = ['**/.git/**', '**/node_modules/**', '**/.venv/**',
+                '**/__pycache__/**', '.Trash/**', 'Library/Caches/**']
+
+
+def credential_paths():
+    """仅保护真实用户级凭据存储位置，项目中的同名路径不属于这些位置。"""
+    home = Path.home().resolve()
+    result = []
+    for relative in CREDENTIAL_LOCATIONS:
+        path = home / relative
+        for candidate in (path, path.resolve()):
+            if candidate not in result:
+                result.append(candidate)
+    return result
 
 
 def locations():
@@ -141,7 +151,7 @@ class Policy:
         for name in ('allow', 'deny', 'force_allow', 'write_roots', 'git_push_remotes'):
             if not isinstance(getattr(self, name), list) or not all(isinstance(x, str) for x in getattr(self, name)):
                 raise ValueError(f'{name} must be a list of strings')
-        # Exact exceptions only: no broad wildcard can expose credentials by accident.
+        # 保留旧接口的精确路径例外语义，不自动生成逐文件例外。
         if any(any(c in x for c in '*?[') for x in self.force_allow):
             raise ValueError('force_allow accepts exact relative file paths only, not wildcards')
         for name in ('max_file_size', 'max_text_output_bytes', 'max_directory_entries', 'max_search_files',
@@ -176,6 +186,7 @@ class Policy:
         if self.config_path:
             self.protected_paths.append(Path(self.config_path).expanduser().resolve())
         self.protected_paths = [Path(x).expanduser().resolve() for x in self.protected_paths]
+        self.protected_credential_paths = credential_paths()
         for path in configured_paths:
             self._check_protected_path(path)
 
@@ -241,19 +252,11 @@ class Policy:
         if any(self._relative_in_root(path, blocked) is not None for blocked in self.protected_paths):
             raise Fault('PROTECTED_RUNTIME', 'MCP 配置、程序或私有状态不可通过工具访问。',
                         '禁止远程修改自身权限、读取密钥配置或绕过备份策略。', '请在本机管理配置。')
-        home_rel = self._relative_in_root(path, Path.home().resolve())
-        if home_rel is not None:
-            names = [home_rel.as_posix()] + [p.as_posix() for p in home_rel.parents if str(p) != '.']
-            hit = next((pat for name in names for pat in HARD_DENY if matches(name, pat)), None)
-        elif self._relative_in_root(path, self.root) is None:
-            # 附加根直接指向外部凭据子目录时，也不能重置凭据保护。
-            hit = next((pat for parent in (path, *path.parents) for pat in HARD_DENY
-                        if matches(parent.as_posix(), pat if pat.startswith('**/') else '**/' + pat)), None)
-        else:
-            hit = None
+        hit = next((blocked for blocked in self.protected_credential_paths
+                    if self._relative_in_root(path, blocked) is not None), None)
         if hit:
-            raise Fault('POLICY_DENIED', '系统凭据目录始终受保护。', 'protected_credential',
-                        '选择普通项目或数据目录；缩小授权根不会解除凭据保护。', matched_rule=hit)
+            raise Fault('POLICY_DENIED', '目标位于受保护的用户级凭据存储位置。', 'protected_credential_path',
+                        '选择已授权的项目或数据路径；项目中的同名文件不受此保护。', matched_rule=str(hit))
 
     def root_for(self, path):
         """返回最具体的授权根，供文件句柄、检索和 Git 边界共同使用。"""
@@ -274,10 +277,6 @@ class Policy:
 
     def rule(self, rel):
         chain = [rel] + [p.as_posix() for p in Path(rel).parents if str(p) != '.']
-        for name in chain:
-            for pat in HARD_DENY:
-                if matches(name, pat):
-                    return False, 'protected_credential', pat
         if rel.casefold() in {x.replace('\\', '/').removeprefix('~/').casefold() for x in self.force_allow}:
             return True, 'force_allow_exact', rel
         for name in chain:
@@ -351,7 +350,9 @@ class Policy:
                 'additional_roots': [{**entry, 'effective_mode': entry['mode'] if self.mode == 'read_write'
                                       else 'read_only'} for entry in self.additional_roots],
                 'allow': self.allow, 'deny': self.deny, 'force_allow': self.force_allow,
-                'write_roots': self.write_roots, 'protected_credentials': HARD_DENY,
+                'write_roots': self.write_roots,
+                'credential_protection': 'explicit_user_paths',
+                'protected_credentials': [str(path) for path in self.protected_credential_paths],
                 'max_file_size': self.max_file_size, 'max_text_output_bytes': self.max_text_output_bytes,
                 'policy_editable_via_mcp': False,
                 'shell_enabled': self.enable_commands and self.mode == 'read_write',
