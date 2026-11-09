@@ -5,7 +5,8 @@
 - 发布前完整合成回归：**396 passed、11 skipped，130.94 秒，退出码 0**；未削弱或排除既有测试，执行环境允许查询测试子进程状态。
 - 临时 HOME 内真实 `python -m home_readonly_mcp.cli self-test` 通过；legacy／modern 握手、文件读回、只读隐藏写工具及目录一致性均通过。
 - 版本与语法、双 README、正式内嵌提示词一致性通过；当前说明更新至 0.6.0，历史版本记录保持原编号。
-- 功能及 Windows 固定字节夹具基线 `8dd858f` 的 [三平台 CI](https://github.com/macgaf/chatgpt-local-mcp-tunnel/actions/runs/42513119730) 已全部通过。本次发布提交的最终 CI 与本机部署仍须分别以其实际记录核验，不能把源代码发布等同于运行实例升级。
+- 功能及 Windows 固定字节夹具基线 `8dd858f` 的 [三平台 CI](https://github.com/macgaf/chatgpt-local-mcp-tunnel/actions/runs/42513119730) 已全部通过；发布提交 `d25c111` 的 [macOS／Ubuntu／Windows CI](https://github.com/macgaf/chatgpt-local-mcp-tunnel/actions/runs/42550037855) 也全部通过。
+- 用户授权的本机部署、自检、服务切换和真实连接功能验证已完成。公开结果见 [发布验收摘要](docs/DEPLOYMENT_20261109.md)；具体本机配置、进程和备份等信息仅保留在本机受保护记录中。
 
 ---
 
